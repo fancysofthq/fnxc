@@ -1,0 +1,39 @@
+name: ~@contrib/json # The registry name
+version: 1.10.0
+
+homepage: https://github.com/onyxcontrib/http
+description: >
+  A cool shard doing some awesome stuff
+
+authors:
+  - Vlad Faust <mail@vladfaust.com>
+license: MIT
+
+scripts:
+  spec: onyx spec/spec.nx
+  dev: onyx src/main.nx
+  build: onyx build src/main.nx -o bin/myshard -O1 # 0-3, 3 is superior, but balanced
+  release: onyx build src/main.nx -o bin/myshard -OP # Performance or Bytesize
+
+deps:
+  # Looked up in the registry by name "@contrib/json"
+  # Would be placed at ".shard/@contrib/json"
+  ~@contrib/json: ~> 1.0.5
+
+  # Looked up as "@contrib/json", placed at ".shard/json"
+  json:
+    name: "@contrib/json"
+    version: ~> 1.0.5
+
+  # Downloaded directly from git(hub), placed at ".shard/some-abc"
+  # No registry hit happens
+  some-abc:
+    git: git://github.com/vladfaust/some-other.nx
+    github: vladfaust/some-other.nx
+    gitlab: ~
+    bitbucket: ~
+    version: ~> 0.0.1
+
+# Would not be installed when `shard install --nodev`
+devdeps:
+  ~@onyx/spec: 2.19.5-dev1

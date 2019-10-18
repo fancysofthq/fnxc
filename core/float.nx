@@ -1,0 +1,121 @@
+primitive Float(LLVMType T : SymbolLiteral)
+  macro specialized
+    {%
+      local allowed_types = {
+        "half", "float", "double",
+        "fp128", "x86_fp80", "ppc_fp128"
+      }
+
+      if not table.includes(allowed_types, T.value) then
+        panic("Unrecognized LLVM floating point type " .. T.value)
+      end
+    %}
+  end
+
+  {%
+    function compare_llvm_fp_types(a, b)
+      if a == "half" then
+        if b == "half" then
+          return 0
+        else
+          return -1
+        end
+      elseif a == "float" then
+        if b == "half" then
+          return 1
+        elseif b == "float" then
+          return 0
+        else
+          return -1
+        end
+      elseif a == "double" then
+        if b == "half" or b == "float" then
+          return 1
+        elseif b == "double" then
+          return 0
+        else
+          return -1
+        end
+      elseif table.includes({"x86_fp80", "ppc_fp128", "fp128"}, a) then
+        if a == b then
+          return 0
+        else
+          return -1
+        end
+      else
+        panic("Unknown LLVM floating point type " .. a)
+      end
+    end
+
+    function validate_fast_math_flags(flags)
+      local allowed_flags = {
+        "nnan", "ninf", "nsz", "arcp",
+        "contract", "afn", "reassoc", "fast"
+      }
+
+      for _, flag in ipairs(flags) do
+        if not table.includes(allowed_flags, flag)
+          panic("Invalid Fast-Math Flag " .. flag)
+        end
+      end
+    end
+  %}
+
+  {%
+    for _, data in ipairs{
+      {"add", "+", 100}, {"sub", "-", 100},
+      {"mul", "*", 110}, {"div", "/", 110},
+      {"rem", "%", 110}
+    } do
+  %}
+    # Call LLVM `f{{ data[1] }}` instruction on *self* and *other* floating point value.
+    # The resulting type is always `self`. The *other* type must not be greater than `self`.
+    # If *other* type is less than `self`, then it would be extended to `self` before the addition.
+    # The method is assumed to execute in the default floating-point environment.
+    # You can use [LLVM Fast-Math Flags](https://llvm.org/docs/LangRef.html#fast-math-flags) if needed.
+    def {{data[1]}}(other : FloatingPoint(U), .., flags : ..V) : self forall U : SymbolLiteral, V : SymbolLiteral
+      \{%
+        if compare_llvm_fp_types(T.value, U.value) == -1 then
+          panic("Right operand floating point type must not be greater than the left one")
+        end
+      %}
+
+      \{% validate_fast_math_flags(V.values) -- TODO: %}
+
+      llvm
+        %temp.0 = fpext \{{ U.value }} %arg.other to {{ T.value }}
+        %temp.1 = f{{ data[1] }} \{{ V.values.join(" ") -- TODO: }}
+          \{{ T.value }} %self, %temp.0
+        ret %temp.1
+      end
+    end
+
+    # @nodoc Does not perform floating point extension.
+    def {{data[1]}}(other : self, .., flags : ..U) : self forall U : Symbol
+      \{% validate_fast_math_flags(U) %}
+
+      llvm
+        $0 = f{{ data[1] }} \{{ U.join(" ") }} \{{ T.value }} %self, %arg.other
+        ret $0
+      end
+    end
+
+    # @see `#{{ data[1] }}`.
+    % Precedence({{ data[3] }})
+    def binop {{ data[2] }} (other)
+      {{ data[1] }}(other)
+    end
+  {% end %}
+end
+
+alias Float16 = Float(:half)
+alias Float32 = Float(:float)
+alias Float64 = Float(:double)
+
+{% if program.target == "x86_64" then %}
+  alias Float64 = Float(:x86_fp80)
+{% elseif table.includes({"ppc32", "ppc64", "ppc64le"}, program.target) then %}
+  alias Float64 = Float(:ppc_fp128)
+{% elseif program.target == "arm" then %}
+  alias Float64 = Float(:fp128)
+{% end %}

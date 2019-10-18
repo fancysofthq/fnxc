@@ -1,0 +1,64 @@
+primitive Proc : ..T ~> U
+end
+
+# Proc is also a coroutine?
+
+def each(T ~>)
+  var i = 0
+
+  while i < size
+    yield self[i]
+    i += 1
+  end
+end
+
+def map(T ~> U) forall U
+  var new = self(U).new(capacity)
+  each ~> new << yield(&)
+  return new
+end
+
+def any?(T ~> Bool)
+  var i = 0
+
+  while i < size
+    if yield(self[i])
+      return true
+    end
+
+    i += 1
+  end
+
+  return false
+end
+
+def foo
+  proc = ~> return 42
+  proc.call
+  unreacheable
+end
+
+var new = [1, 2].map.indexed ~> & + &1
+
+var gen = Generator.new ~> [1, 2].map(&)
+gen.indexed ~> & + &1
+
+proc = Int32 ~> { puts & * 2 }
+
+[1, 2].each(proc)
+[1, 2].each ~> puts & * 2
+
+[1, 2].map.indexed ~> { |e, i| e * i }
+
+ary.any? ~> &.odd?
+
+def main
+  Framework::Web.get '/' ~> &.response << 'Hello, world!'
+  Framework::Web.listen
+end
+
+async ~> handle(client)
+
+puts typeof coro # => Coro(Int32 ~> void)
+@resume coro
+@promise coro

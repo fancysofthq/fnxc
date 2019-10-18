@@ -1,0 +1,72 @@
+# This module is *implicitly* derived by all the classes.
+# You can not see it in the list of derivees, though;
+# use `is_class()` macro function instead.
+module Class
+  # @doc The ARC header prepended to every class instance.
+  # It allows to track references and safely delete non-referenced instances
+  # from heap. It should not be used directly in the code, but it's generally
+  # a good idea to know its structure. It may eventually become useful
+  # upon working with Onyx classes from within C code.
+  % Pack
+  private struct Header
+    # Is this instance currently locked for ARC-related routine?
+    var locked? : Bool
+
+    # Is ARC enabled for this instance?
+    var arc? : Bool
+
+    # Is this instance already marked for deletion?
+    var deleted? : Bool
+
+    # @append The references counter size depends on the architecture.
+    # See the source code for better detail.
+
+    {% if program.wordsize == 16 then %}
+      var rc : UInt(12) # ((2 ^ 16) / 16) max references
+      private var padding : Integer(1)
+    {% elseif program.wordsize == 32 then %}
+      var rc : UInt(27) # ((2 ^ 32) / 32) max references
+      private var padding : Integer(2)
+    {% elseif program.wordsize == 64 then %}
+      var rc : UInt(56) # ((2 ^ 64) / 64) max references
+      private var padding : Integer(5)
+    {% else %}
+      {% panic("Unsupported wordsize " .. program.wordsize) %}
+    {% end %}
+  end
+
+  # @doc The header can still be accessed as `instance.(private)__header`,
+  # but better use according intrinsics.
+  private var __header : Header
+end
+
+# @nodoc
+macro @validate_is_class(instance)
+  {%
+    if not instance.type:derives("Class") then
+      panic("Instance must be a class")
+    end
+  %}
+end
+
+macro @refcount(instance)
+  @validate_is_class({{ instance }})
+  @@upcast({{ instance }}.(private)__header.rc, Size)
+end
+
+# Atomically disables ARC cleanup for given class *instance*.
+# Returns the previous ARC state.
+macro @dearcify(instance)
+  @validate_is_class({{ instance }})
+  @lock({{ instance }}.(private)__header.locked?) ~>
+    @atomic.set({{ instance }}.(private)__header.arc?, false)
+end
+
+# Atomically enables ARC cleanup for given class *instance*.
+# It does not perform any ARC checks at this moment.
+# Returns the previous ARC state.
+macro @arcify(instance)
+  @validate_is_class({{ instance }})
+  @lock({{ instance }}.(private)__header.locked?) ~>
+    @atomic.set({{ instance }}.(private)__header.arc?, true)
+end

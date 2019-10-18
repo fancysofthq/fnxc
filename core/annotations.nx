@@ -1,0 +1,3 @@
+# Packs a type, disabling any internal bit alignments.
+annotation Pack
+end

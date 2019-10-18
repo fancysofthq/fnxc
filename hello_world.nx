@@ -1,0 +1,5 @@
+import "stdio"
+
+def main
+  puts "Hello, world!"
+end

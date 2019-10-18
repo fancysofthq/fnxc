@@ -1,0 +1,85 @@
+# Literally expands to `while true; <block>; end`.
+macro @loop(~> block)
+  while true
+    {{ yield(block) }}
+  end
+end
+
+macro @is?(value, type)
+  {{ value.type.type == type or value.type:is(type) }}
+end
+
+macro @as(value, type)
+  {% if value.type.name == type.name then %}
+    {{ value }}
+  {% elseif _derives(value.type, type) then %}
+    @@upcast({{ value }}, {{ type }})
+  {% else %}
+    {%
+      panic(value.type.name:typify() ..
+        " can not be cast to " ..
+        type.name:typify())
+    %}
+  {% end %}
+end
+
+macro @nil?(value)
+  {% if value.type.type == "Void" then %}
+    true
+  {% elseif value.type.is_nilable %}
+    {% if value.type.is_union then %}
+      &value.offset({{ value.type.switch_size }}).nil?
+    {% else %}
+      &value.nil?
+    {% end %}
+  {% else %}
+    false
+  {% end %}
+end
+
+macro @nonil!(value)
+  if @nil?({{ value }})
+    raise NilAssertionError.new
+  else
+    value
+  end
+end
+
+macro @try(value, ~> proc)
+  if @nil?({{ value }})
+    nil
+  else
+    {{ yield(proc, value) }}
+  end
+end
+
+# Unsafely cast *value* to *type*.
+macro @@upcast(value, type)
+  # TODO: LLVM bitcast down or up to type
+end
+
+macro @@downcast(value, type)
+end
+
+macro @validate_ordering(ordering : SymbolLiteral)
+  {%
+    if not table.includes({"unordered", "seqcon"}, ordering.value) then
+      panic("Invalid ordering " .. ordering.value)
+    end
+  %}
+end
+
+macro @atomic.and(var : T, value : T, ordering : SymbolLiteral = :seqcon) forall T
+  @validate_ordering(ordering)
+
+  const {{ local tempname = "const" .. rand() }} = uninitialized {{ T }}
+
+  llvm
+    ; TODO: If var is a literal, use it as-is. Otherwise, load it from pointer
+    %temp.0 = atomicrmw and {{ T.llvm_type }}* {{ var.llvm_pointer }},
+      {{ T.llvm_type }} {{ value.llvm_value }} {{ ordering.value }}
+    store %temp.0, {{ T.llvm_type }} %const.{{ tempname }}
+  end
+
+  {{ tempname }}
+end

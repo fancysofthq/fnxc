@@ -1,0 +1,6 @@
+# `?` is applicable to classes and pointers only. It implies nilabilty.
+# `?` **does not** create a Union. `~` is applicable to anything,
+# it means "or void" and **does** imply a union. It's a shortcut to `T | void`.
+# `?` and `~` may be combined like this: `Class?~`.
+primitive Union(..T)
+end
