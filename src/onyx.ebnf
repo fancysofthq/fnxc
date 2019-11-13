@@ -1,0 +1,421 @@
+ascii = ? extended ascii codepoints ?;
+encoding = ? any codepoint in current file encoding ?;
+
+macros = "{{", encoding, "}}";
+macros = "{%", encoding, "%}";
+
+newexpr = (["\r", nospace], "\n") | ";";
+space = ? whitespace(s) is required to parse ?;
+
+(* Note that EBNF repetition (the `*` symbol) implies `nospace` *)
+nospace = ? whitespace(s) is prohibited ?;
+
+latin_lowercase =
+  "a" | "b" | "c" | "d" | "e" | "f" | "g" |
+  "h" | "i" | "j" | "k" | "l" | "m" | "n" |
+  "o" | "p" | "q" | "r" | "s" | "t" | "u" |
+  "v" | "w" | "x" | "y" | "z";
+
+latin_uppercase =
+  "A" | "B" | "C" | "D" | "E" | "F" | "G" |
+  "H" | "I" | "J" | "K" | "L" | "M" | "N" |
+  "O" | "P" | "Q" | "R" | "S" | "T" | "U" |
+  "V" | "W" | "X" | "Y" | "Z";
+
+latin = latin_lowercase | latin_uppercase;
+
+(*
+  The Greek lowercase letters may only be used as Onyx identifers.
+  Note that `ο` (Greek omicron) is interchangeable with `o` (Lation o)
+*)
+greek_lowercase =
+  "α" | "β" | "γ" | "δ" | "ε" |
+  "ζ" | "η" | "θ" | "ι" | "κ" |
+  "λ" | "μ" | "ν" | "ξ" | "ο" |
+  "π" | "ρ" | "σ" | "ς" | "τ" |
+  "υ" | "φ" | "χ" | "ψ" | "ω";
+
+digit_except_zero = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
+digit = "0" | digit_except_zero;
+
+binary = "0" | "1";
+boolean = "false" | "true";
+octadecimal = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8";
+
+hexadecimal =
+  "0" | "1" | "2" | "3" | "4" |
+  "5" | "6" | "7" | "8" | "9" |
+  "a" | "b" | "c" | "d" | "e" | "f" |
+  "A" | "B" | "C" | "D" | "E" | "F";
+
+opening_bracket = "(" | "[" | "{";
+closing_bracket = ")" | "]" | "}";
+
+(*
+  An Onyx identifier must be either a single lowercase Greek letter,
+  or a C-style identifier with an exception that it must not begin
+  with an uppercase letter.
+
+  Examples: `α`, `foo`, `_bAr_42`
+*)
+id =
+  greek_lowercase | (
+    latin_lowercase | "_", {
+      nospace, latin | digit | "_"
+    }
+  );
+
+function_id = id, ["!" | "?"];
+
+(*
+  Excludes most Greek letters to avoid confusion,
+  effectively allowing Γ, Δ, Θ, Λ, Ξ, Π, Σ, Φ, Ψ and Ω
+*)
+prohibited_op_symbol =
+  latin | digit | opening_bracket | closing_bracket | space |
+  "!" | "?" | "." | ":" | ";" | "$" |
+  "@" | "\" | '"' | "'" | "`" |
+  "Α" | "Β" | "Ε" | "Ζ" | "Η" | "Ι" | "Κ" |
+  "Μ" | "Ν" | "Ο" | "Ρ" | "Τ" | "Υ" | "Χ";
+
+op = encoding - prohibited_op_symbol;
+
+(*
+  Literals
+*)
+
+bytes_postfix = nospace, ["_", nospace], "i" | "u", "f";
+binary_literal = "0b", nospace, {8 * binary}, [bytes_postfix];
+octadecimal_literal = "0o", nospace, {4 * octadecimal}, [bytes_postfix];
+hexadecimal_literal = "0x", nospace, {2 * hexadecimal}, [bytes_postfix];
+
+(* Decimal integers are `i32` by default. They must not end with `_` *)
+decimal_integer_literal =
+  digit_except_zero, {nospace, digit | "_"},
+  [nospace, ["_", nospace], "i" | "u", [nospace, digit, {nospace, digit}]];
+
+(*
+  Decimal floating points are `double` by default.
+  They must not end with `_`
+*)
+decimal_floating_point_literal =
+  "0" | (digit, {nospace, digit}), nospace,
+  ".", nospace, digit, {nospace, digit},
+  [nospace, "e", nospace, ["-", nospace], digit, {nospace, digit}],
+  [nospace, ["_", nospace], "f", [nospace, digit, {nospace, digit}]];
+
+(* A single ASCII character, which expands to `i8` *)
+char_literal = "'", ascii, "'";
+
+(*
+  A may be empty sequence of codepoints in file encodings,
+  which expands to a pointer to `i8`
+*)
+string_literal = '"', {encoding}, '"';
+
+(* A "magic" string literal, e.g. `%q(foo)` or `%SQL[SELECT 1]`*)
+percent_string_literal =
+  "%", nospace, {ascii, nospace}, opening_bracket,
+  {encoding}, closing_bracket;
+
+(*
+  Tuple literals require at least two expressions;
+  the last one may be empty with trailing comma, though.
+  Parens may be omitted, but it prohibits empty trailing expressions.
+*)
+tuple_literal = "(", expr, ",", expr, {",", expr}, [","], ")";
+tuple_literal = expr, ",", expr, {",", expr};
+
+named_expr_pair = id, nospace, ":", expr;
+named_expr_sequence = named_expr_pair, {",", named_expr_pair};
+
+(* Named tuple literals have syntax similar to call with named arguments *)
+named_tuple_literal = "(", named_expr_sequence, ")";
+named_tuple_literal = named_expr_sequence;
+
+expr_sequence = expr, {",", expr};
+key_value_pair = expr, "=>", expr;
+key_value_sequence = key_value_pair, {",", key_value_pair};
+
+slice_literal = "{", expr_sequence, "}";
+map_literal = "{", key_value_sequence, "}";
+
+array_literal = "[", expr_sequence, "]";
+hash_literal = "[", key_value_sequence, "]";
+
+(*
+  A range literal, which may or may not include its boundaries, e.g:
+
+  1..5 == [1, 2, 3, 4, 5] (include both start and end)
+  1...5 == [1, 2, 3, 4] (exclude end)
+  1....5 == [2, 3, 4] (exclude both start and end)
+
+  A range literal may also have **one** of its ends omitted.
+  In that case, it's a syntax error to try to exclude both ends.
+
+  1.. (ok, from 1 to +∞)
+  ..1 (ok, from -∞ to 1)
+
+  1... (ok, from 2 to +∞)
+  ...1 (ok, from -∞ to 0)
+
+  1.... (error, can not exclude omitted end)
+  ....1 (ditto)
+
+  Excluding both ends makes no sense in Onyx
+*)
+range_literal = expr, "..", 2 * ".", expr;
+range_literal = expr, "..", ["."];
+range_literal = "..", ["."], expr;
+
+proc_literal =
+  [tuple_literal], "~>", [("(", type_ref, ")") | type_ref],
+  block;
+
+literal =
+  bool_literal | binary_literal |
+  octadecimal_literal | hexadecimal_literal |
+  decimal_integer_literal | decimal_floating_point_literal |
+  char_literal | string_literal | percent_string_literal |
+  tuple_literal | named_tuple_literal |
+  slice_literal | map_literal |
+  array_literal | hash_literal |
+  range_literal | proc_literal;
+
+(*
+  Types
+*)
+
+(*
+  Onyx types may begin with an uppercase Latin letter
+  followed by a Latin letter or a digit
+*)
+type_id = latin_uppercase, {nospace, latin | digit};
+
+(*
+  Onyx type references may begin with an optional global namespace (`::`)
+  Type references may include more than one namespace accessor.
+  Type references may include generic arguments, but only in the very end.
+
+  Examples: `Foo`, `::BaR::Qux42`, `::BaR("abc")`, `Baz::Qux42(X: 17)`
+*)
+raw_type_ref = type_id, {nospace, "::", nospace, raw_type_ref};
+type_ref = ["::", nospace], raw_type_ref, ["(", generic_args, ")"];
+
+type_expr = ["!", nospace], ["("], type_ref, ["|" | "&" | "^", type_expr], [")"];
+
+(*
+  Generics
+*)
+
+(*
+  Arguments on a generic call are almost like function call arguments,
+  but their names must be in PascalCase and their values may only be
+  literals or Onyx types
+*)
+generic_arg = literal | (["in" | "out"], [".." | "**"], type_ref);
+ordered_generic_args = generic_arg, {",", generic_arg};
+
+named_generic_arg = type_id, nospace, ":", generic_arg;
+named_generic_args = named_generic_arg, {",", named_generic_arg};
+
+generic_args = [ordered_generic_args], [",", named_generic_args];
+
+(*
+  Examples:
+
+  `class Enumerable(out Element T)`
+  `primitive Slice(Type T, Size N : SizeLiteral)`
+  `struct NamedTuple(Elements **T)`
+*)
+generic_arg_decl =
+  ["in" | "out"], [type_id], [".." | "**"], type_id,
+  [":", type_expr], ["=", literal | ([".." | "**"], type_ref)];
+generic_args_decl = generic_arg_decl, {",", generic_arg_decl};
+
+(*
+  Expressions
+*)
+
+condition_statement =
+  "if" | "unless", expr, {expr, newexpr},
+  {"elsif", expr, {expr, newexpr}},
+  ["else", {expr, newexpr}],
+  "end";
+late_condition_statement = expr, "if" | "unless", expr;
+
+loop_statement = "while" | "unless", expr, {expr, newexpr}, "end";
+late_loop_statement = expr, "while" | "unless", expr;
+
+case_statement =
+  "case", [expr],
+  {"when", expr, {expr, newexpr}},
+  ["else", {expr, newexpr}],
+  "end";
+
+switch_statement =
+  "switch", expr,
+  {"when", type_expr, {expr, newexpr}},
+  ["else", {expr, newexpr}],
+  "end";
+
+ternary_op_statement = expr, "?", expr, ":", expr;
+elvis_op_statement = expr, "?:", expr;
+
+branch_statement =
+  condition_statement | late_condition_statement |
+  loop_statement | late_loop_statement |
+  case_statement | switch_statement |
+  ternary_op_statement | elvis_op_statement;
+
+as_statement = id, "as!", type_ref;
+is_statement = id, "is?", type_expr;
+
+return_control_statement = "return" | "yield" | "convey" | "break", expr;
+continue_statement = "continue";
+
+call_args = [expr_sequence], [",", named_expr_sequence];
+
+block =
+  "{" | "do",
+  ["|", id, {",", id}, "|"],
+  {expr, newexpr},
+  "}" | "end";
+
+call =
+  [type_ref | id, nospace],
+  (".", nospace, id | function_id) |
+  ("@", nospace, function_id, {nospace, ".", id}),
+  [nospace, "(", call_args, ")"],
+  ["~>", block];
+
+unary_operation = op | ".." | "**", nospace, expr;
+binary_operation = expr, op, expr;
+operation = unary_operation | binary_operation;
+
+assignment = expr, "=", expr;
+local_var_decl = "var" | "const", id, [":", type_expr];
+
+expr =
+  type_ref | type_expr | id | literal |
+  local_var_decl |
+  call | operation | assignment |
+  branch_statement |
+  return_control_statement |
+  as_statement | is_statement |
+  continue_statement;
+expr = "(", expr, ")";
+
+(*
+  Functions
+*)
+
+(*
+  A function argument declaration may optionally contain
+  its alias, type restriction and default value
+*)
+block_arg_decl = [type_expr], "~>", [type_expr];
+function_arg_decl = [id], id, [":", type_expr | block_arg_decl], ["=", expr];
+function_args_decl = function_arg_decl, {",", function_arg_decl}, [block_arg_decl];
+
+function_proto =
+  ["private" | "protected"],
+  ["static"],
+  ["safe" | "volatile" | "unsafe"],
+  ["const"],
+  "def", (
+    function_id | op, ["(", function_args_decl, ")"]
+  ) | (
+    "[", function_args_decl, "]", ["=", "(", function_args_decl, ")"]
+  ),
+  [":", type_expr];
+
+function_decl = "abstract", function_proto, ["forall", generic_arg_decl];
+
+(* Function definitions allow the `where` statement *)
+function_def =
+  function_proto,
+  ["forall", generic_arg_decl, ["where", macros]],
+  {expr, newexpr}, "end";
+
+(*
+  Intrinsics
+*)
+
+intrinsic_def =
+  ["private" | "protected"],
+  "macro",
+  "@", nospace, {id, ".", nospace}, function_id,
+  ["(", function_arg_decl, ")"],
+  ["where", macros],
+  {expr, newexpr},
+  "end";
+
+(*
+  C interoperability
+*)
+
+(* C identifiers have C naming conventions *)
+c_id = latin | "_", {nospace, latin | "_" | digit};
+
+external_variable_decl = ;
+external_function_decl = ;
+external_typedef = ;
+
+exported_variable_decl = ;
+exported_function_decl = ;
+exported_typedef = ;
+
+(*
+  Object declarations
+*)
+
+variable_decl =
+  ["private" | "protected"],
+  ["static"],
+  ["safe", "volatile", "unsafe"],
+  ["var" | "getter"], id,
+  [":", type_expr],
+  ["=", expr];
+
+(* Constants can't be static, and require their values to be set*)
+constant_decl =
+  ["private" | "protected"],
+  "const", id,
+  [":", type_expr],
+  "=", expr;
+
+type_decl =
+  raw_type_ref, [
+    "(", generic_args_decl, ")",
+    ["<", type_ref],
+    ["where", macros]
+  ];
+
+derive_decl = "derive", type_ref;
+
+object_def =
+  "reopen" | "namespace" | "module" | "primitive" | "struct" | "class",
+  type_decl, {object_body}, "end";
+
+object_body =
+  derive_decl | intrinsic_def |
+  namespace_def | object_def |
+  variable_decl | constant_decl |
+  function_decl | function_def;
+
+(*
+  The program
+*)
+
+require = "require", string_literal, {",", string_literal};
+import = "import", string_literal, {",", string_literal};
+
+(* External and exported declarations are allowed in the top-level namespace *)
+top_level_namespace_body =
+  require | import |
+  object_body |
+  external_variable_decl | external_function_decl | external_typedef |
+  exported_variable_decl | exported_function_def | exported_typedef;
+
+program = top_level_namespace_body, {newexpr, top_level_namespace_body};

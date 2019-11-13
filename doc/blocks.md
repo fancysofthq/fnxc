@@ -89,3 +89,44 @@ Generators are always volatile, as the content could have changed in async conte
 ## Procs
 
 Procs able to enclose outer variables, so they're accessible within the proc. However, closured variables are passed by value, thus it's only possible to mutate such variable if it's a class instance. This rule applies to all enclosing blocks.
+
+## New
+
+If callee IS a generator and block HAS control,
+then the code is straightforward inlined.
+
+If callee IS a generator and block HAS NO control,
+then the code may or may not be inlined.
+
+If callee IS NOT a generator and block HAS control,
+the compiler panics.
+
+If callee IS NOT a generator and block HAS NO control,
+then the code is outlined.
+
+Valid block syntaxes:
+
+```
+foo ~> bar
+
+foo ~> do
+  bar
+end
+
+foo ~> { bar }
+
+foo ~> do |x, y|
+  bar
+end
+
+foo ~> { |x, y| bar }
+```
+
+If need to just wrap code, use expression:
+
+```
+break if (
+  abc
+  def.empty?
+)
+```

@@ -1,2 +1,0 @@
-primitive Slice(Type T, Size N : SizeLiteral)
-end

@@ -5,12 +5,13 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "lrdb",
+      "type": "gdb",
       "request": "launch",
-      "name": "Lua debug",
-      "program": "${file}",
-      "cwd": "${workspaceFolder}",
-      "stopOnEntry": false
+      "name": "Launch Program (GDB)",
+      "target": "./bin/onyx",
+      "arguments": "build joj",
+      "cwd": "${workspaceRoot}",
+      "valuesFormatting": "parseText",
     }
   ]
 }

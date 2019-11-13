@@ -16,18 +16,28 @@ A function arguments may or may not have restriction declared, as well as the re
 
 It is possible to declare variable arguments, or *vargs*. If not restricted, every vargs types combination codegenerates a new, distinct function. To make the combination accessible in macros, use the `forall` syntax. This also applies to simple argument types.
 
-## Indexable
+## Index methods
 
-There is a special *indexable* methods syntax, which has an unique declaration semantics.
+There are special *index* methods, which have an unique declaration semantics. Note that the index methods can't be static, as the syntax is reserved for containers declaration.
 
 ```onyx
-class Foo
-  # Called on `foo[0]`.
-  def [index : T] : U
+class Array(T)
+  # Called on `ary[0]`.
+  def [index : Size] : T
   end
 
-  # Called on `foo[0] = 42`.
-  def [index : T] = (value : U) : U
+  # Called on `ary[0] = 42`.
+  def [index : Size] = (value : T) : T
+  end
+end
+
+primitive Slice(T, N)
+  # Called on `slice{0}`.
+  def {index : Size} : T
+  end
+
+  # Called on `slice{0} = 42`.
+  def {index : Size} = (value : T) : T
   end
 end
 ```
@@ -61,9 +71,18 @@ qux(1, 2) # Ok
 
 Note that in the strict compilation mode, parens are mandatory for **any** call.
 
+### Call modifiers
+
+Calls may be modified with a space-separated list of predefined modifiers wrapped in parenthesis. Modifiers include LLVM Fast-Math flags (`nnan`, `ninf`, `nsz`, `arcp`, `contract`, `afn`, `reassoc` and `fast`) and LLVM function modifiers (`musttail`, `notail`, `cold`, `hot` etc.).
+
+```onyx
+var x = 42.0.(hot nnan ninf nsz)add(1)
+var x = 42.0 (hot nnan ninf nsz)+ 1
+```
+
 ## Blocks of code as arguments
 
-If callee is a [generator](/blocks.md), then a block of code can be inlined using the `do; end` and `{}` syntaxes. Otherwise you must use the procs syntax (`~>`) and pass it as a fully qualified argument. However, proc argument restriction can be delegated to the callee. For example:
+If callee is a [generator](/blocks.md), then a block of code would be inlined using the `do; end` syntax. You can also pass a proc to a generator (e.g. `foo ~> bar`), and it would have a chance to be inlined as a generator. Otherwise you must use the procs syntax (`~>`) and pass it as a fully qualified argument. However, proc argument restriction can be delegated to the callee. For example:
 
 ```onyx
 # Is a code generator
@@ -71,21 +90,25 @@ def foo(Float64 ~> Float64)
   yield 42
 end
 
+# No chance to be turnend into a runtime proc call
 foo do
   & * 2
 end
+
+# A proc likely to be inlined
+foo ~> & * 2
 
 # A simple function accepting proc
 def bar(proc : Float64 ~> Float64)
   proc.call(42)
 end
 
-bar(~> do
+# Panic! Bar is not a generator
+bar do
   & * 2
-end)
-```
+end
 
-```
-var new = [1, 2, 3, 4].map.nth(2).index { |e, i| e * (i + 1) } == [2, 8, 0, 0]
-var coro = [1, 2, 3, 4].map # Is a class? We should store the index
+# Ok. The proc still has a chance to be inlined,
+# under certain circumstances
+bar ~> & * 2
 ```

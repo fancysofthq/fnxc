@@ -1,0 +1,11 @@
+require ".shard/@framework/web"
+
+def main
+  Framework::Web.get '/' do
+    &.response << 'Hello, World!'
+  end
+
+  Framework::Web.listen(
+    host: "localhost",
+    port: 5000)
+end

@@ -13,12 +13,12 @@ global int a = 42
 int a = 42
 
 # A local function.
-string function foo(string a, string b)
+string foo(string a, string b)
   return a + b
 end
 
 # A global function.
-global void function bar()
+global void bar()
   # Interpolation is not supported by Minix,
   # use printf-like formatting instead.
   # All function calls require parenthesis in Minix
@@ -86,7 +86,6 @@ Minix has the following built-in types. All types occupy the **host** pointer si
 
   * `void` — the nothingness
   * `int` — an integer
-  * `float` — a floating point
   * `bool` — an boolean value, can only be either `true` or `false`
   * `string` — a null-terminated 4-bytes-chars UTF-8-encoded string
   * `regex` — a regular expression
@@ -95,9 +94,9 @@ Minix has the following built-in types. All types occupy the **host** pointer si
   * `file` — a file descriptor
   * `node` — an **immutable** AST node
 
-`int`, `float`, `bool` and `file` are kept on stack unless declared `global`; and others are always in the heap memory. All global variables accesses are atomic, as they may be accessed from multiple workers.
+`int`, `bool` and `file` are kept on stack unless declared `global`; and others are always in the heap memory. All global variables accesses are atomic, as they may be accessed from multiple workers.
 
-`int` can be automatically cast to `float` and `file`, but not vice versa. Also `string` can be cast to `regex`.
+`string` can be automatically cast to `regex`.
 
 ## Instructions
 

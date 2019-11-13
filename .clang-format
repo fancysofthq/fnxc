@@ -1,0 +1,11 @@
+---
+BasedOnStyle: LLVM
+KeepEmptyLinesAtTheStartOfBlocks: false
+BinPackArguments: false
+BinPackParameters: false
+AllowAllParametersOfDeclarationOnNextLine: true
+BreakConstructorInitializers: AfterColon
+AlignAfterOpenBracket: AlwaysBreak
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+ColumnLimit: 80
+SortIncludes: true

@@ -1,0 +1,17 @@
+var ary = Array(Int32).new(100)
+var mutex = Mutex.new
+
+# A thread-local variable
+threadlocal var tid = Scheduler.thread_id
+
+promises = 100.times do |i|
+  threadlocal async do # Shortcut to `Scheduler@async(threadlocal: true)`
+    mutex.lock do
+      ary.push(i)
+    end
+  end
+end
+
+sleep(1.0) # Shortcut to `Scheduler@sleep`
+await(promises) # Shortcut to `Scheduler@await`
+puts ary

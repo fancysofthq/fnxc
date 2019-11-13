@@ -1,2 +1,3 @@
-bin/*
+bin
+cache
 /compile_flags.txt
