@@ -104,18 +104,47 @@ optional<Parser::CompilationRequest> Parser::parse() {
           lex(); // Consume the opening bracket
 
           while (!is_exact(L")")) {
-            if (auto name = as<Token::ID>()) {
-              auto decl = make_shared<SAST::FunctionArgumentDeclaration>();
+            // A function argument may have a name and an alias
+            //
 
-              decl->name = name;
-              prototype->args.insert(decl);
+            auto alias = as<Token::ID>();
 
-              lex(); // Consume the name
-
-              if (is_exact(L","))
-                lex(); // Consume the comma
-            } else
+            if (!alias)
               throw Error(_token, L"Expected argument name");
+
+            auto decl = make_shared<SAST::FunctionArgumentDeclaration>();
+            prototype->args.insert(decl);
+
+            lex();
+            auto name = as<Token::ID>();
+
+            if (name) {
+              decl->alias = alias;
+              decl->name = name;
+              lex(); // Consume the name
+            } else
+              decl->name = alias;
+
+            if (is_exact(L":")) {
+              // Argument has a restriction,
+              // which must be a type expression
+              //
+
+              lex(); // Consume the colon
+              decl->restriction = parse_expression();
+            }
+
+            if (is_exact(L"=")) {
+              // Argument has a default value,
+              // which must be an expression
+              //
+
+              lex(); // Consume the "=" symbol
+              decl->default_value = parse_expression();
+            }
+
+            if (is_exact(L","))
+              lex(); // Consume the comma
           }
 
           lex(); // Consume the closing bracket
@@ -124,11 +153,14 @@ optional<Parser::CompilationRequest> Parser::parse() {
         skip_newlines();
 
         while (!is_end()) {
-          // TODO: Parse expression
-          lex();
+          if (is<Token::Eof>())
+            throw Error(_token, L"Expected end");
+
+          body->expressions.insert(parse_expression());
         }
 
-        lex();             // Consume the "end" keyword
+        lex(); // Consume the "end" keyword
+
         _sast_stack.pop(); // Exit the function definition
       } else {
         throw Error(_token, L"Unexpected token");
@@ -142,6 +174,48 @@ optional<Parser::CompilationRequest> Parser::parse() {
   }
 
   return nullopt;
+} // namespace Onyx
+
+shared_ptr<SAST::Expression> Parser::parse_expression() {
+  if (auto id = as<Token::ID>()) {
+    lex();
+
+    auto node = make_shared<SAST::ID>();
+    node->id = id;
+
+    if (is_terminator())
+      return node;
+
+    if (auto op = as<Token::Op>()) {
+      lex();
+
+      auto binop = make_shared<SAST::Binop>();
+
+      binop->lhx = node;
+      binop->op = op;
+
+      binop->rhx = parse_expression();
+      if (!binop->rhx)
+        throw Error(op, L"Expected right-hand expression");
+
+      return binop;
+    } else if (is<Token::Access>()) {
+      lex();
+
+      auto callee = as<Token::ID>();
+      if (!callee)
+        throw Error(_token, L"Expected identifier");
+    }
+  } else if (auto op = as<Token::Op>()) {
+    auto unop = make_shared<SAST::Unop>();
+    unop->op = op;
+
+    unop->expr = parse_expression();
+    if (!unop->expr)
+      throw Error(op, L"Expected expression");
+
+    return unop;
+  }
 }
 
 void Parser::lex() {

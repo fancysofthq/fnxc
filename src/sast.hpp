@@ -43,6 +43,75 @@ struct Namespace : Declaration {
 
 struct Expression : Node {};
 
+struct ID : Expression {
+  shared_ptr<Token::ID> id;
+};
+
+struct Literal : Expression {};
+
+// String literal is a continuation of strings
+// mixed with interpolation expressions.
+struct StringLiteral : Literal {
+  vector<variant<shared_ptr<Token::String>, shared_ptr<Expression>>> strings;
+};
+
+struct NumericLiteral : Literal {};
+
+// `1`, `-42i16`
+struct DecimalIntLiteral : NumericLiteral {
+  enum Sign { UndefinedSign, Positive, Negative };
+  Sign sign;
+
+  ulong value; // The numerical value
+
+  enum Type { UndefinedType, Signed, Unsigned };
+  Type type;
+
+  uint bitsize; // 0 if undefined
+};
+
+// `0.5`, `-42.10e-3`
+struct DecimalFloatLiteral : NumericLiteral {
+  enum Sign { UndefinedSign, Positive, Negative };
+  Sign sign;
+
+  ulong significand; // `5` for `0.5`, `4210` for `-42.10e-3`
+  int exponent;      // `-1` for `0.5`, `-5 == (-3 - 2)` for `-42.10e-3`
+
+  enum Bitesize { UndefinedBitesize, F16, F32, F64 };
+  Bitesize bitsize;
+};
+
+// `0b00000001`, `0b10101010_10010111_u16`
+struct BinaryLiteral : NumericLiteral {
+  vector<bool> bits;
+
+  enum Type { UndefType, SignedInt, UnsignedInt, Float };
+  Type type;
+
+  uint bitsize;
+};
+
+// `0o0317`, `0o4516_1254_f16`
+struct OctadecimalLiteral : NumericLiteral {
+  vector<char> octals;
+
+  enum Type { UndefType, SignedInt, UnsignedInt, Float };
+  Type type;
+
+  uint bitsize;
+};
+
+// `0xF8`, `0x4e_3a_i16`
+struct HexadecimalLiteral : NumericLiteral {
+  vector<char> hexes;
+
+  enum Type { UndefType, SignedInt, UnsignedInt, Float };
+  Type type;
+
+  uint bitsize;
+};
+
 struct Body : Node {
   set<shared_ptr<Expression>> expressions;
   void dump(wostream *buffer, ushort tab = 0);

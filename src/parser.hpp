@@ -34,6 +34,7 @@ public:
   Parser(Lexer *lexer, shared_ptr<SAST::Node> sast_root, mutex *sast_mutex);
 
   optional<CompilationRequest> parse();
+  shared_ptr<SAST::Expression> parse_expression();
 
 private:
   void lex();
