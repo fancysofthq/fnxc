@@ -1,0 +1,55 @@
+# The module all classes derive from.
+@[Pack]
+module Class < Struct
+  private var _arc_deleted? : Bit
+
+  {% if target.size == 16 %}
+    private var _arc_gap : UInt(3)
+    private var _arc_counter : UInt({{ 12 }})
+  {% else if target.size == 32 %}
+    private var _arc_gap : UInt(4)
+    private var _arc_counter : UInt({{ 27 }})
+  {% else if target.size == 64 %}
+    private var _arc_gap : UInt(5)
+    private var _arc_counter : UInt({{ 58 }})
+  {% end %}
+end
+
+macro @ref(er, ee)
+  \{% if ee:type() < Class then %}
+    \{% if ee:is_concurrent() then %}
+      @atomicadd(\{{ ee }}.(private)_arc_counter, 1)
+    \{% else %}
+      \{{ ee }}.(private)_arc_counter += 1
+    \{% end %}
+  \{% else if ee:type() < Struct then %}
+    \{% for field in ee:type():instance_fields() do %}
+      @ref(\{{ ee }}.(explicit)\{{ field }})
+    \{% end %}
+
+    \{% if ee:type():has_method("referencees") then %}
+      \{{ ee }}.(explicit)referencees -> @ref(&)
+    \{% end %}
+  \{% end -- Noop otherwise %}
+end
+
+macro @deref(er, ee)
+  \{% if ee:type() < Class then %}
+    \{% if ee:is_concurrent() then %}
+      const old = @atomicsub(\{{ ee }}.(private)_arc_counter, 1)
+      if old == 1
+
+    \{% else %}
+      const old = \{{ ee }}.(private)_arc_counter
+      \{{ ee }}.(private)_arc_counter -= 1
+    \{% end %}
+  \{% else if ee:type() < Struct then %}
+    \{% for field in ee:type():instance_fields() do %}
+      @ref(\{{ ee }}.(explicit)\{{ field }})
+    \{% end %}
+
+    \{% if ee:type():has_method("referencees") then %}
+      \{{ ee }}.(explicit)referencees -> @ref(&)
+    \{% end %}
+  \{% end -- Noop otherwise %}
+end

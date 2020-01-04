@@ -1,0 +1,25 @@
+primitive Integer(Bitsize S : SizeLiteral)
+end
+
+primitive Int(Bitsize S)
+  derive Integer(S)
+end
+
+alias Int8 -> Int(8)
+alias Int16 -> Int(16)
+alias Int32 -> Int(32)
+alias Int64 -> Int(64)
+
+primitive UInt(Bitsize S)
+  derive Integer(S)
+end
+
+alias UInt8 -> UInt(8)
+alias UInt16 -> UInt(16)
+alias UInt32 -> UInt(32)
+alias UInt64 -> UInt(64)
+
+alias Bit -> UInt(1)
+alias Bool -> Bit
+alias Byte -> UInt8
+alias Char -> Byte

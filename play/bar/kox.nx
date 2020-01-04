@@ -1,0 +1,3 @@
+class User
+  var age : Int16
+end

@@ -12,7 +12,12 @@ namespace fs = experimental::filesystem;
 namespace Onyx {
 class Parser {
   Lexer *_lexer;
+
+  // The latest lexed token.
   shared_ptr<Token::Base> _token;
+
+  vector<shared_ptr<Token::Base>> *_tokens;
+
   stack<shared_ptr<SAST::Node>> _sast_stack;
   mutex *_sast_mutex;
 
@@ -31,7 +36,11 @@ public:
     CompilationRequest(bool is_import);
   };
 
-  Parser(Lexer *lexer, shared_ptr<SAST::Node> sast_root, mutex *sast_mutex);
+  Parser(
+      Lexer *lexer,
+      vector<shared_ptr<Token::Base>> *tokens,
+      shared_ptr<SAST::Node> sast_root,
+      mutex *sast_mutex);
 
   optional<CompilationRequest> parse();
   shared_ptr<SAST::Expression> parse_expression();
@@ -44,6 +53,8 @@ private:
   template <class T> bool is();
   bool is_exact(wstring value);
   bool is_end();
+  bool is_newline();
+  bool is_eof();
   void skip_newlines();
 
   // Expressions are terminated with either newlines, semicolon or EOF.

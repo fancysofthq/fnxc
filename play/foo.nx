@@ -1,0 +1,7 @@
+require "./bar/baz.nx"
+require "./bar/qux.nx"
+require "./bar/kox.nx"
+
+def sum(a, b) : Number
+  return a + b
+end

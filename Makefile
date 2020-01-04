@@ -1,13 +1,17 @@
 CXX = clang++
 CXXLTO = -flto=thin
-CXXFLAGS = -g $(CXXLTO) -std=c++17 -I`llvm-config-8 --includedir`
-LIBS = `llvm-config-8 --system-libs --ldflags support` -lpthread -lstdc++fs
+CXXFLAGS = -g $(CXXLTO) -std=c++17 -I`llvm-config --includedir` -I./lib/lua
+LIBS = `llvm-config --system-libs --ldflags support` \
+	-lpthread -lstdc++fs \
+	-L./lib/lua -llua -ldl
 
 SRC_DIR = src
 CACHE_DIR = cache
 BIN_DIR = bin
 
 _OBJECTS = \
+	macro.o \
+	token.o \
 	lexer.o \
 	sast.o \
 	parser.o \

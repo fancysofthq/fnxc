@@ -7,121 +7,148 @@ using namespace std;
 namespace Onyx {
 namespace Token {
 struct Base {
-  Location loc;
-  Base(Location loc) : loc(loc) {}
+  Location location;
+  Base(Location loc) : location(loc) {}
   virtual ~Base() {}
 };
 
 struct Control : Base {
   enum Kind {
-    Eof,         //
-    Newline,     // \n
-    Space,       //
-    Dot,         // .
-    Semi,        // ;
-    Colon,       // :
-    Comma,       // ,
-    Assign,      // =
+    Eof,       //
+    Newline,   // \n
+    Space,     //
+    Dot,       // .
+    Semicolon, // ;
+    Colon,     // :
+    Comma,     // ,
+
     OpenParen,   // (
     CloseParen,  // )
     OpenCurly,   // {
     CloseCurly,  // }
     OpenSquare,  // [
     CloseSquare, // ]
-    Block,       // ~>
-    BlockParen,  // |
-    Pipe,        // |>
-    KeyValue,    // =>
-    Interpol,    // #{
+
+    CurlyArrow, // ~>
+    ThinArrow,  // ->
+    ThickArrow, // =>
+    PipeArrow,  // |>
   };
 
   Kind kind;
 
   Control(Location loc, Kind kind) : Base(loc), kind(kind) {}
+
+  wstring pretty_source();
+  wstring source();
 };
 
-struct AnonArg : Base {
-  ushort index;
-  AnonArg(Location loc, ushort index) : Base(loc), index(index) {}
-};
-
-struct Macro : Base {};
-
-struct Id : Base {
+// A value token.
+struct Value : Base {
   enum Kind {
-    Var,       // `foo` (/[a-zα-ω_][a-zA-Zα-ωΑ-Ω0-9_]*/)
-    Type,      // `Foo` (/[A-ZΑ-Ω][a-zA-Zα-ωΑ-Ω0-9_]*/)
-    Op,        // `&&` (in predefined ranges of Unicode)
-    Intrinsic, // `@foo.bar`
-    C          // `` `Foo ``
+    Variable,    // Variable, e.g. `foo`
+    Type,        // Type, e.g. `Foo`
+    Operator,    // Operator, e.g. `&&`
+    Intrinsic,   // Intrinsic, e.g. `@foo`
+    CIdentifier, // C identifier, e.g. `` `Foo ``
+    Comment,
+    Macro,
   };
 
   Kind kind;
   wstring value;
 
-  Id(Location loc, Kind kind, wstring value) :
+  Value(Location loc, Kind kind, wstring value) :
       Base(loc),
       kind(kind),
       value(value) {}
+
+  wstring pretty_kind();
 };
 
-struct String : Base {
-  wstring value;
-  String(Location loc, wstring value) : Base(loc), value(value) {}
+// An indexed anonymous block argument, e.g. `&1`.
+struct AnonArg : Base {
+  uint8_t index;
+  AnonArg(Location loc, uint8_t index) : Base(loc), index(index) {}
+  wstring source();
 };
 
-// `1`, `42i16`
+struct Literal : Base {};
+
+// A decimal integer literal, e.g. `1`, `42i16`.
 struct DecimalInt : Base {
-  ulong value; // The numerical value
+  vector<char> digits;
 
-  enum Type { UndefinedType, Signed, Unsigned };
+  enum Type { UndefType, Signed, Unsigned };
   Type type;
 
-  uint bitsize; // 0 if undefined
+  uint32_t bitsize; // 0 if undefined
 
   DecimalInt(
-      Location loc, ulong value, Type type = UndefinedType, uint bitsize = 0) :
+      Location loc,
+      vector<char> digits,
+      Type type = UndefType,
+      uint32_t bitsize = 0) :
       Base(loc),
-      value(value),
+      digits(digits),
       type(type),
       bitsize(bitsize) {}
+
+  wstring source();
 };
 
-// `0.5`, `42.10e-3`
+// A decimal floating point literal, e.g. `0.5`, `42.10e-3`.
 struct DecimalFloat : Base {
-  ulong significand; // `5` for `0.5`, `4210` for `-42.10e-3`
-  int exponent;      // `-1` for `0.5`, `-5 == (-3 - 2)` for `-42.10e-3`
+  // Examples of significands: `5` for `0.5`, `4210` for `-42.10e-3`
+  vector<char> significand;
 
-  enum Bitsize { UndefinedBitesize, Float16, Float32, Float64 };
+  // For example, `-1` for `0.5`, `-5 == (-3 - 2)` for `-42.10e-3`
+  int exponent;
+
+  // Floating point literals have predefined list of
+  // possible bitsizes dictated by IEEE 754.
+  enum Bitsize { UndefBitsize, Float16, Float32, Float64 };
   Bitsize bitsize;
 
-  DecimalFloat(Location loc, ulong significand, int exponent, Bitsize bitsize) :
+  DecimalFloat(
+      Location loc, vector<char> significand, int exponent, Bitsize bitsize) :
       Base(loc),
       significand(significand),
       bitsize(bitsize) {}
-};
 
-// `0b00000001`, `0b10101010_10010111_u16`
-// `0o0317`, `0o4516_1254_f16`
-// `0xF8`, `0x4e_3a_i16`
+  wstring source();
+}; // namespace Token
+
+// A non-decimal number literal, for example:
+//
+// * `0b00000001`, `0b10101010_10010111_u16` (bina-decimal (or just binary))
+// * `0o0317`, `0o4516_1254_f16` (octa-decimal (or just octal))
+// * `0xF8`, `0x4e_3a_i16` (hexa-decimal)
+//
 struct NonDecimalNumber : Base {
   enum Kind { Bina, Octa, Hexa };
   Kind kind;
 
-  vector<char> value;
+  vector<char> chars; // Only ASCII chars are allowed
 
-  enum Type { UndefinedType, SignedInt, UnsignedInt, Float };
+  enum Type { UndefType, SignedInt, UnsignedInt, Float };
   Type type;
 
-  uint bitsize;
+  uint32_t bitsize; // 0 if undefined
 
   NonDecimalNumber(
-      Location loc, Kind kind, vector<char> value, Type type, uint bitsize) :
+      Location loc,
+      Kind kind,
+      vector<char> chars,
+      Type type,
+      uint32_t bitsize) :
       Base(loc),
       kind(kind),
-      value(value),
+      chars(chars),
       type(type),
       bitsize(bitsize) {}
+
+  wstring source();
 };
 }; // namespace Token
 } // namespace Onyx

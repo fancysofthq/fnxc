@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
 
       try {
         cerr << "[D] Compiling...\n";
-        auto compiler = Onyx::Compiler(fs::path(filename), jobs);
+        auto compiler = Onyx::Compiler(fs::path(filename), (ushort)jobs);
         cerr << "[D] Compiled\n";
       } catch (Onyx::Compiler::Error err) {
         if (!err.location.path.empty()) {

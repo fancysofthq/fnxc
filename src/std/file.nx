@@ -1,0 +1,50 @@
+struct File
+  enum Flag
+    Read
+    Write
+    Append
+    Extended
+    Binary
+    X
+
+    def to_mode
+      switch @self
+      when Read; "r"
+      when Write; "w"
+      when Read | Write; "rw"
+      when Read | Append; "r+"
+      when Write | Append; "w+"
+      when Read | Write | Append; "rw+"
+      else
+        raise "Unsupported mode"
+      end
+    end
+  end
+
+  const descriptor : `FILE
+
+  static def open(filename : Char*, mode : Flag)
+    const result = `fopen(filename, mode.to_mode)
+
+    if result.nil?
+      switch `errno
+      when `ETODO
+        raise Todo.new
+      end
+    else
+      return new(descriptor: result)
+    end
+  end
+
+  # A virtually blocking read.
+  # It uses OS-specific event system to
+  # effeciently wait until the file is ready.
+  def read(buffer : Void*, limit : Size) : Size
+    Scheduler.wait_for_read(@self)
+    const bytes_read = `fread(buffer, 1, limit, descriptor)
+
+    case bytes_read
+    when -1
+
+  end
+end

@@ -1,0 +1,49 @@
+class Promise(out Result T)
+  private const proc : Proc(T)
+
+  getter var mutex = Mutex.new
+  getter var signal = Signal.new
+  private var resolved = false
+  private var in_progress = false
+
+  unsafe var result = uninitialized T
+
+  def initialize(self.proc)
+  end
+
+  def resolved? : Bool
+    @atomic.get(resolved)
+  end
+
+  def in_progress? : Bool
+    @atomic.get(in_progress)
+  end
+
+  def result : T
+    raise NotResolvedYet unless resolved?
+    return (unsafe)result
+  end
+
+  def resolve : T
+    loop do
+      mutex.lock
+
+      if @atomic.get(resolved)
+        break
+      elsif @atomic.get(in_progress)
+        signal.wait(mutex)
+        break
+      else
+        @atomic.set(in_progress, true)
+        signal.notify(mutex)
+
+        result = proc.call
+        @atomic.set(resolved, true)
+
+        break
+      end
+    end
+
+    return result
+  end
+end

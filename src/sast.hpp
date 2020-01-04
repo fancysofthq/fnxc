@@ -44,7 +44,7 @@ struct Namespace : Declaration {
 struct Expression : Node {};
 
 struct ID : Expression {
-  shared_ptr<Token::ID> id;
+  shared_ptr<Token::Value> value;
 };
 
 struct Literal : Expression {};
@@ -52,65 +52,10 @@ struct Literal : Expression {};
 // String literal is a continuation of strings
 // mixed with interpolation expressions.
 struct StringLiteral : Literal {
-  vector<variant<shared_ptr<Token::String>, shared_ptr<Expression>>> strings;
+  vector<variant<shared_ptr<Token::Value>, shared_ptr<Expression>>> values;
 };
 
 struct NumericLiteral : Literal {};
-
-// `1`, `-42i16`
-struct DecimalIntLiteral : NumericLiteral {
-  enum Sign { UndefinedSign, Positive, Negative };
-  Sign sign;
-
-  ulong value; // The numerical value
-
-  enum Type { UndefinedType, Signed, Unsigned };
-  Type type;
-
-  uint bitsize; // 0 if undefined
-};
-
-// `0.5`, `-42.10e-3`
-struct DecimalFloatLiteral : NumericLiteral {
-  enum Sign { UndefinedSign, Positive, Negative };
-  Sign sign;
-
-  ulong significand; // `5` for `0.5`, `4210` for `-42.10e-3`
-  int exponent;      // `-1` for `0.5`, `-5 == (-3 - 2)` for `-42.10e-3`
-
-  enum Bitesize { UndefinedBitesize, F16, F32, F64 };
-  Bitesize bitsize;
-};
-
-// `0b00000001`, `0b10101010_10010111_u16`
-struct BinaryLiteral : NumericLiteral {
-  vector<bool> bits;
-
-  enum Type { UndefType, SignedInt, UnsignedInt, Float };
-  Type type;
-
-  uint bitsize;
-};
-
-// `0o0317`, `0o4516_1254_f16`
-struct OctadecimalLiteral : NumericLiteral {
-  vector<char> octals;
-
-  enum Type { UndefType, SignedInt, UnsignedInt, Float };
-  Type type;
-
-  uint bitsize;
-};
-
-// `0xF8`, `0x4e_3a_i16`
-struct HexadecimalLiteral : NumericLiteral {
-  vector<char> hexes;
-
-  enum Type { UndefType, SignedInt, UnsignedInt, Float };
-  Type type;
-
-  uint bitsize;
-};
 
 struct Body : Node {
   set<shared_ptr<Expression>> expressions;
@@ -124,34 +69,34 @@ struct Arguments {
 
 // Annotation "usage".
 struct AnnotationApplication : Node {
-  shared_ptr<Token::ID> id;
+  shared_ptr<Token::Value> id;
   Arguments args;
 };
 
 // `..foo` is an example of a regular splat, while `**foo` is a named one.
 struct Splat : Expression {
   bool is_named;
-  shared_ptr<Token::ID> id;
+  shared_ptr<Token::Value> id;
 };
 
 // Binary operations involve left and right hand
 // expressions and the operator between them.
 struct Binop : Expression {
   shared_ptr<Expression> lhx;
-  shared_ptr<Token::Op> op;
+  shared_ptr<Token::Value> op;
   shared_ptr<Expression> rhx;
 };
 
 // Unary operation has the operator and the expression.
 struct Unop : Expression {
-  shared_ptr<Token::Op> op;
+  shared_ptr<Token::Value> op;
   shared_ptr<Expression> expr;
 };
 
 struct Call : Expression {
-  shared_ptr<Token::ID> modifiers;
+  shared_ptr<Token::Value> modifiers;
   shared_ptr<Expression> caller;
-  variant<shared_ptr<Token::ID>, shared_ptr<Token::Op>> callee;
+  shared_ptr<Token::Value> callee;
   Arguments args;
 };
 
@@ -161,8 +106,8 @@ struct FunctionArgumentDeclaration : Node {
 
   enum { Common, Vargs, Kwargs } type;
 
-  shared_ptr<Token::ID> alias;
-  shared_ptr<Token::ID> name;
+  shared_ptr<Token::Value> alias;
+  shared_ptr<Token::Value> name;
 
   shared_ptr<Expression> restriction;
   shared_ptr<Expression> default_value;
@@ -172,8 +117,8 @@ struct FunctionArgumentDeclaration : Node {
 
 struct FunctionPrototype : Node {
   set<shared_ptr<AnnotationApplication>> annotations;
-  set<shared_ptr<Token::ID>> modifiers;
-  variant<shared_ptr<Token::ID>, shared_ptr<Token::Op>> name;
+  set<shared_ptr<Token::Value>> modifiers;
+  shared_ptr<Token::Value> name;
   set<shared_ptr<FunctionArgumentDeclaration>> args;
 
   void dump(wostream *buffer, ushort tab = 0);

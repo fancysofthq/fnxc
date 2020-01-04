@@ -1,0 +1,9 @@
+reopen Slice(T, S)
+  delegate referencees -> each
+
+  redef set(index : Size, value : T)
+    @deref(get(index))
+    super
+    @ref(value)
+  end
+end

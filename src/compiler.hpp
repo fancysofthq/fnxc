@@ -9,14 +9,26 @@
 #include <thread>
 #include <vector>
 
+#include "./macro.hpp"
 #include "./sast.hpp"
 #include "./shared.hpp"
 
 using namespace std;
 namespace fs = experimental::filesystem;
 
+namespace std {
+template <> struct hash<fs::path> {
+  size_t operator()(fs::path const path) const {
+    return std::hash<string>{}(path.generic_u8string());
+  }
+};
+} // namespace std
+
 namespace Onyx {
 class Compiler {
+  // Variables below control how the source files are being compiled.
+  //
+
   vector<fs::path> _queued;
   set<fs::path> _being_compiled;
   set<fs::path> _compiled;
@@ -24,8 +36,16 @@ class Compiler {
   mutex _mutex;
   condition_variable _monitor;
 
-  static shared_ptr<SAST::Node> _top_level_namespace;
-  static mutex _sast_mutex;
+  // The top-level SAST node.
+  shared_ptr<SAST::Node> _top_level_namespace;
+  mutex _sast_mutex;
+
+  // The container to store tokens per file.
+  // This includes both tokens from source files and evaluated from macros.
+  unordered_map<fs::path, vector<shared_ptr<Token::Base>>> _tokens;
+
+  // Thread-local `Macro` instances.
+  unordered_map<thread::id, unique_ptr<Macro>> _macros;
 
 public:
   struct Error {
@@ -36,24 +56,24 @@ public:
     Error(Location location, wstring message);
   };
 
-  Compiler(fs::path entry, u_char workers_count);
+  Compiler(fs::path entry, ushort workers_count);
 
 private:
   unique_ptr<Error> _error;
 
-  void enqueue(const fs::path path);
+  // Enqueue a file path for compilation.
+  void enqueue(const fs::path);
 
-  void compile_file(const fs::path path, unsigned short worker_id);
+  // Compile the file!
+  void compile_file(const fs::path);
 
   // Wait until all files at *paths* are compiled.
   // Note that it removes paths from the vector.
-  void wait(
-      const fs::path from_path,
-      vector<fs::path> *paths,
-      const unsigned short worker_id);
+  void wait(vector<fs::path> *required);
 
-  void work(int worker_id);
+  // Do the job.
+  void work();
 
-  void debug(ushort worker_id, string message);
+  void debug(string message);
 };
 } // namespace Onyx

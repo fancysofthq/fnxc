@@ -1,0 +1,8 @@
+[submodule "lib/doctest"]
+	path = lib/doctest
+	url = https://github.com/onqtam/doctest.git
+	branch = tags/2.3.6
+[submodule "lib/lua"]
+	path = lib/lua
+	url = https://github.com/lua/lua.git
+	branch = tags/v5.3.5

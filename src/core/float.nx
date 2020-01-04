@@ -1,0 +1,16 @@
+primitive Float(BuiltInType T : SymbolLiteral)
+end
+
+alias Float16 -> Float(:half)
+alias Float32 -> Float(:float)
+alias Float64 -> Float(:double)
+
+{% if _target.arch == "x86" then %}
+  alias Float80 -> Float(:x86_fp80)
+{% end %}
+
+{% if _target.arch == "ppc" then %}
+  alias Float128 -> Float(:ppc_fp128)
+{% else %}
+  alias Float128 -> Float(:fp128)
+{% end %}

@@ -1,0 +1,69 @@
+foo
+  .bar
+  .baz
+
+foo +
+  bar -
+  baz
+
+foo
+  |> bar
+  |> baz
+
+(foo).bar # Ok
+foo bar   # Ok
+α bar     # Ok
+!bar      # Ok
+foo, bar  # Ok
+
+42 bar     # Panic!
+(foo) bar  # Panic!
+(foo) .bar # Panic!
+(foo). bar # Panic!
+
+each ~> foo      # Ok
+each ~> { foo }  # Ok
+each do foo; end # Ok
+
+each foo            # Panic!
+each { foo }        # Panic!
+each ~> do foo; end # Panic!
+
+unsafe foo; end # Ok
+unsafe { foo }  # Ok
+
+unsafe ~> foo      # Panic!
+unsafe ~> { foo }  # Panic!
+unsafe do foo; end # Panic!
+
+def main
+  {1, 2}.each ~> `puts(&)
+end
+
+
+
+// Function names begin with latin lowercase letters and allow math symbols,
+// but can't mix them:
+//
+// def ∫ (a, b, c)
+// end
+//
+// Math::∫(x, 1, 2)
+//
+// def unop ∑
+//   return self.sum
+// end
+//
+// √(x + 3)
+// ∑{1, 2, 3}
+//
+// Variables can have latin and greek letters (both lower- and uppercase):
+//
+// var α = 42
+// const Π = 3.14
+//
+// Types begin with uppercase latin and greek letters, but can't mix them:
+//
+// class ΦΔΣ
+// end
+//

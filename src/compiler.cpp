@@ -9,12 +9,9 @@ Compiler::Error::Error(Location location, wstring message) :
     location(location),
     message(message) {}
 
-shared_ptr<SAST::Node> Compiler::_top_level_namespace =
-    make_shared<SAST::Namespace>();
+Compiler::Compiler(fs::path entry, ushort workers_count) {
+  _top_level_namespace = make_unique<SAST::Namespace>();
 
-mutex Compiler::_sast_mutex = mutex();
-
-Compiler::Compiler(fs::path entry, u_char workers_count) {
   enqueue(entry);
 
   vector<thread> workers;
@@ -22,11 +19,11 @@ Compiler::Compiler(fs::path entry, u_char workers_count) {
 
   // Spawns *workers_count* workers
   for (int i = 0; i < workers_count; i++) {
-    auto fun = bind(&Compiler::work, this, i);
+    auto fun = bind(&Compiler::work, this);
     workers.push_back(thread(fun));
   }
 
-  // All workers, unite!
+  // Workers of the world — unite!
   for (int i = 0; i < workers_count; i++) {
     workers.back().join();
     workers.pop_back();
@@ -44,7 +41,7 @@ void Compiler::enqueue(const fs::path path) {
   _monitor.notify_all();
 }
 
-void Compiler::compile_file(const fs::path path, unsigned short worker_id) {
+void Compiler::compile_file(const fs::path path) {
   if (!fs::exists(path))
     throw Error(
         Location(), L"Could not open \"" + path.generic_wstring() + L'"');
@@ -57,10 +54,12 @@ void Compiler::compile_file(const fs::path path, unsigned short worker_id) {
     throw Error(Location(), to_wstring(err.what()));
   }
 
-  debug(worker_id, string("Compiling ").append(path) + "...");
+  debug(string("Compiling ").append(path) + "...");
 
-  auto lexer = Lexer(&file);
-  auto parser = Parser(&lexer, _top_level_namespace, &_sast_mutex);
+  // auto macro = _macros.at(this_thread::get_id()).get();
+  auto lexer = Lexer(&file, nullptr);
+  auto parser =
+      Parser(&lexer, &_tokens.at(path), _top_level_namespace, &_sast_mutex);
 
   try {
     auto request = parser.parse();
@@ -87,19 +86,19 @@ void Compiler::compile_file(const fs::path path, unsigned short worker_id) {
       }
 
       if (require_buffer.size() > 0)
-        wait(path, &require_buffer, worker_id);
+        wait(&require_buffer);
 
       request = parser.parse();
     }
 
     if (require_buffer.size() > 0)
-      wait(path, &require_buffer, worker_id);
+      wait(&require_buffer);
 
     lock_guard<mutex> lock(_mutex);
     _being_compiled.erase(path);
     _compiled.insert(path);
 
-    debug(worker_id, string("Compiled ").append(path));
+    debug(string("Compiled ").append(path));
 
     _monitor.notify_all();
   } catch (Lexer::Error err) {
@@ -114,14 +113,11 @@ void Compiler::compile_file(const fs::path path, unsigned short worker_id) {
   }
 }
 
-void Compiler::wait(
-    const fs::path from_path,
-    vector<fs::path> *paths,
-    const unsigned short worker_id) {
-  auto size = paths->size();
+void Compiler::wait(vector<fs::path> *required) {
+  auto size = required->size();
 
   for (int i = 0; i < size; i++) {
-    auto const path = paths->back();
+    auto const path = required->back();
 
     while (true) {
       unique_lock<mutex> lock(_mutex);
@@ -136,7 +132,7 @@ void Compiler::wait(
           if (!_being_compiled.count(next_path)) {
             _being_compiled.insert(next_path);
             lock.unlock();
-            compile_file(next_path, worker_id);
+            compile_file(next_path);
             break;
           } else {
             _monitor.wait(lock);
@@ -147,14 +143,14 @@ void Compiler::wait(
       }
     }
 
-    paths->pop_back();
+    required->pop_back();
   }
 }
 
-void Compiler::work(int worker_id) {
+void Compiler::work() {
   while (true) {
     unique_lock<mutex> lock(_mutex);
-    debug(worker_id, "Acquired lock");
+    debug("Acquired lock");
 
     if (_error)
       break;
@@ -168,10 +164,10 @@ void Compiler::work(int worker_id) {
         lock.unlock();
 
         try {
-          compile_file(path, worker_id);
-          debug(worker_id, "Compiled");
+          compile_file(path);
+          debug("Compiled");
         } catch (Error err) {
-          debug(worker_id, "Caught error");
+          debug("Caught error");
           unique_lock<mutex> lock(_mutex);
           _error = make_unique<Error>(err);
           lock.unlock();
@@ -180,17 +176,17 @@ void Compiler::work(int worker_id) {
         }
       }
     } else if (_being_compiled.size() > 0) {
-      debug(worker_id, "Waiting for notification...");
+      debug("Waiting for notification...");
       _monitor.wait(lock);
-      debug(worker_id, "Received notification");
+      debug("Received notification");
     } else
       break;
   }
 
-  debug(worker_id, "Done");
+  debug("Done");
 }
 
-void Compiler::debug(ushort worker_id, string message) {
-  // cerr << "[D] [#" << worker_id << "] " << message << "\n";
+void Compiler::debug(string message) {
+  cerr << "[#" << this_thread::get_id() << "] " << message << "\n";
 }
 }; // namespace Onyx

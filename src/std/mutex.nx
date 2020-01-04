@@ -1,0 +1,34 @@
+class Mutex
+  getter locked? = false
+  private const signal = Signal.new
+
+  threadsafe def lock? : Bool
+    if locked? { return false }
+    else { return !@atomic_cmpset(locked?, false, true) }
+  end
+
+  threadsafe def lock : Void
+    loop do
+      if lock?
+        break
+      else
+        signal.wait(Fiber.current)
+      end
+    end
+  end
+
+  threadsafe def unlock : Void
+    if !@atomic_cmpset(locked?, true, false)
+      raise NotLockedYet
+    else
+      signal.notify_one
+    end
+  end
+
+  threadsafe def sync(-> T) : T forall T
+    lock
+    const result = volatile { yield }
+    unlock
+    return result
+  end
+end

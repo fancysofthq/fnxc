@@ -1,4 +1,4 @@
-#include <fstream>
+#include <istream>
 
 #include "./lexer.hpp"
 
@@ -9,54 +9,183 @@ Lexer::Error::Error(const Location loc, const wstring msg) :
     location(loc),
     message(msg) {}
 
-Lexer::Lexer(wistream *input) : _input(input) {
+Lexer::Lexer(wistream *input, Macro *macro) : _input(input), _macro(macro) {
   read();
 
   if (!_input->eof())
     cursor.row += 1;
 }
 
-// Function names begin with latin lowercase letters and allow math symbols,
-// but can't mix them:
-//
-// def ∫ (a, b, c)
-// end
-//
-// Math::∫(x, 1, 2)
-//
-// def unop ∑
-//   return self.sum
-// end
-//
-// √(x + 3)
-// ∑{1, 2, 3}
-//
-// Variables can have latin and greek letters (both lower- and uppercase):
-//
-// var α = 42
-// const Π = 3.14
-//
-// Types begin with uppercase latin and greek letters, but can't mix them:
-//
-// class ΦΔΣ
-// end
-//
 shared_ptr<Token::Base> Lexer::lex() {
   // TODO:
   //
   //   * [ ] Blocks and their arguments
   //   * [ ] Pipe operator
-  //   * [ ] Comments
-  //   * [ ] Immediate macros
-  //   * [ ] Delayed macros
+  //   * [x] Comments
+  //   * [x] Immediate macros
+  //   * [x] Delayed macros
   //   * [ ] Annotations
   //   * [ ] Interpolation
+  //   * [ ] Percent literals
+  //   * [ ] Brackets
+  //   * [ ] Key-value
   //
   while (!_input->eof()) {
     _location.begin_row = cursor.row;
     _location.begin_column = cursor.col;
 
-    if (is(' ')) {
+    if (is('{')) {
+      read();
+
+      if (is('%')) {
+        read();
+
+        if (_macro->is_incomplete) {
+          // New macro means the emitted expression is likely to end.
+          //
+          // ```
+          // {% for i ... do %}
+          //   `print({{ i }})
+          // {% end %}
+          // ^ New macro, must evaluate `` emit("`print(" .. i .. ")\n") ``
+          // ```
+          //
+
+          _macro->end_emit();
+          _macro->eval();
+
+          if (!_macro->error.empty())
+            raise(L"Error executing macro: " + _macro->error);
+        }
+
+        bool backslash = false;
+
+        while (true) {
+          if (is(EOF))
+            raise(L"Expected macro completion");
+          else if (is('\\'))
+            backslash = true;
+          else if (is('%') && !backslash) {
+            read();
+
+            if (is('}')) {
+              read();
+              break;
+            }
+
+            _macro->input << '%';
+          } else {
+            backslash = false;
+            _macro->input << _codepoint;
+          }
+
+          read();
+        }
+
+        // Evaluate the accumulated macro code
+        _macro->eval();
+
+        if (_macro->is_incomplete)
+          _macro->begin_emit();
+        else if (!_macro->error.empty())
+          raise(L"Error while executing macro: " + _macro->error);
+      } else if (is('{')) {
+        // That's an emitting macro, e.g. `{{ "foo" }}`.
+        //
+
+        if (_macro->is_incomplete)
+          _macro->begin_emitting_expression();
+
+        bool backslash = false;
+
+        while (true) {
+          if (is(EOF))
+            raise(L"Expected macro completion");
+          else if (is('\\'))
+            backslash = true;
+          else if (is('}') && !backslash) {
+            read();
+
+            if (is('}')) {
+              read();
+              break;
+            }
+
+            _macro->input << '}';
+          } else {
+            backslash = false;
+            _macro->input << _codepoint;
+          }
+
+          read();
+        }
+
+        if (_macro->is_incomplete) {
+          _macro->end_emitting_expression();
+          continue;
+        }
+
+        _macro->eval();
+
+        if (_macro->is_incomplete)
+          raise(L"Emitting macros must be complete");
+
+        if (!_macro->error.empty())
+          raise(L"Error while executing macro: " + _macro->error);
+      } else if (_macro->is_incomplete) {
+        _macro->ensure_begin_emitting_onyx_code();
+        _macro->input << '{';
+      } else
+        return yield_control(Token::Control::OpenCurly);
+    } else if (is('\\')) {
+      read();
+
+      if (is('{')) {
+        read();
+
+        if (is('%') || is('{')) {
+          bool is_emit = is('{');
+          bool backslash = false;
+          wstring buff;
+
+          while (true) {
+            if (is(EOF))
+              raise(L"Expected macro completion");
+            else if (is('\\'))
+              backslash = true;
+            else if ((is_emit ? is('}') : is('%')) && !backslash) {
+              wchar_t cp = _codepoint;
+              read();
+
+              if (is('}')) {
+                read();
+                break;
+              }
+
+              buff += cp;
+            } else {
+              backslash = false;
+              buff += _codepoint;
+            }
+
+            read();
+          }
+
+          yield_value(Token::Value::Macro, buff);
+        } else
+          raise(L"Expected `{%` or `{{`");
+      } else
+        raise();
+    } else if (_macro->is_incomplete) {
+      _macro->ensure_begin_emitting_onyx_code();
+
+      if (_macro->onyx_code_needs_escape(_codepoint))
+        _macro->input << '\\' << _codepoint;
+      else
+        _macro->input << _codepoint;
+
+      read();
+    } else if (is(' ')) {
       // A sequence of whitespaces is treated as one
       //
 
@@ -82,19 +211,30 @@ shared_ptr<Token::Base> Lexer::lex() {
         // That's an indexed anonymous argument, e.g. `&1`
         //
 
-        string buffer;
+        string buff;
 
         while (is_digit())
-          buffer += (char)read();
+          buff += (char)read();
 
-        return make_shared<Token::AnonArg>(_location, stoi(buffer));
+        return make_shared<Token::AnonArg>(_location, stoi(buff));
+      } else if (is_op()) {
+        // That's an operator
+        //
+
+        wstring buff;
+        buff += '&';
+
+        while (is_op())
+          buff += read();
+
+        return yield_value(Token::Value::Op, buff);
       } else
         // That's either an operator or an anonymous argument
-        return yield_id(Token::Id::Op, L"&");
+        return yield_value(Token::Value::Op, L"&");
     } else if (is('"')) {
       read(); // Consume the opening quotes
 
-      wstring buffer;
+      wstring buff;
       bool _is_backslash = false;
 
       while (!(is('"') && !_is_backslash)) {
@@ -104,16 +244,16 @@ shared_ptr<Token::Base> Lexer::lex() {
           continue;
         } else {
           if (_is_backslash) {
-            buffer += L'\\';
+            buff += L'\\';
             _is_backslash = false;
           }
 
-          buffer += read();
+          buff += read();
         }
       }
 
       read(); // Consume the closing quotes
-      return make_shared<Token::String>(_location, buffer);
+      return yield_value(Token::Value::String, buff);
     } else if (is_digit()) {
       if (is('0')) {
         read(); // We don't need this zero
@@ -121,67 +261,87 @@ shared_ptr<Token::Base> Lexer::lex() {
         if (is('.')) {
           read(); // Consume the dot
 
+          vector<char> digits;
+          digits.push_back('0');
+
           if (is_digit())
             // That's a decimal float literal beginning with zero
-            return lex_decimal("0", true);
+            return lex_decimal(digits, true);
           else
             // That's a zero decimal literal followed by a call
-            return make_shared<Token::DecimalInt>(_location, 0);
+            return make_shared<Token::DecimalInt>(_location, digits);
         } else if (is_digit())
           raise(L"Numbers can't begin with zero");
         else if (is('b') || is('o') || is('x')) {
           // That's a non-decimal numeric literal
           lex_nondecimal();
-        } else
+        } else {
           // That's a decimal zero literal
-          return lex_decimal("0");
+          //
+
+          vector<char> digits;
+          digits.push_back('0');
+
+          return lex_decimal(digits);
+        }
       } else {
-        string significand;
+        vector<char> significand;
 
         while (is_digit())
-          significand += (char)read();
+          significand.push_back((char)read());
 
         lex_decimal(significand);
       }
-    } else if (is_alpha() || is('_') || is('@') || is('`') || is_op()) {
-      Token::Id::Kind kind;
+    } else if (
+        is_alpha() || is('_') || is_op() || is('@') || is('`') || is('#')) {
+      Token::Value::Kind kind;
 
       if (is_lowercase_latin() || is_lowercase_greek() || is('_'))
-        kind = Token::Id::Var;
+        kind = Token::Value::Var;
       else if (is_uppercase_latin() || is_uppercase_greek())
-        kind = Token::Id::Type;
+        kind = Token::Value::Type;
       else if (is_op())
-        kind = Token::Id::Op;
+        kind = Token::Value::Op;
       else if (is('@'))
-        kind = Token::Id::Intrinsic;
+        kind = Token::Value::Intrinsic;
       else if (is('`'))
-        kind = Token::Id::C;
+        kind = Token::Value::C;
+      else if (is('#'))
+        kind = Token::Value::Comment;
       else
-        raise(L"BUG: Unhandled case");
+        throw "BUG";
 
-      wstring buffer;
+      wstring buff;
 
       switch (kind) {
-      case Token::Id::Var:
-      case Token::Id::Type:
-      case Token::Id::Intrinsic:
+      case Token::Value::Var:
+      case Token::Value::Type:
+      case Token::Value::Intrinsic:
         while (is_alphanum() || is('_'))
-          buffer += read();
+          buff += read();
 
         break;
-      case Token::Id::Op:
+      case Token::Value::Op:
         while (is_op())
-          buffer += read();
+          buff += read();
 
         break;
-      case Token::Id::C:
+      case Token::Value::C:
         while (is_latin() || is_digit() || is('_'))
-          buffer += read();
+          buff += read();
 
         break;
+      case Token::Value::Comment:
+        while (!(is('\n') || is('\r')))
+          buff += read();
+
+        break;
+      case Token::Value::String:
+      case Token::Value::Macro:
+        throw "BUG"; // Already handled
       }
 
-      return yield_id(kind, buffer);
+      return yield_value(kind, buff);
     } else
       raise();
   }
@@ -190,7 +350,7 @@ shared_ptr<Token::Base> Lexer::lex() {
 }
 
 shared_ptr<Token::Base>
-Lexer::lex_decimal(string significand, bool explicitly_float) {
+Lexer::lex_decimal(vector<char> significand, bool explicitly_float) {
   bool is_float;
   bool is_exponent_negative;
   string exponent;
@@ -200,15 +360,15 @@ Lexer::lex_decimal(string significand, bool explicitly_float) {
 
     if (!is_digit()) {
       if (explicitly_float)
-        raise(L"Expected number");
+        raise(L"Expected digits after the floating point");
       else
-        return make_shared<Token::DecimalInt>(_location, stoi(significand));
+        return make_shared<Token::DecimalInt>(_location, significand);
     }
 
     is_float = true;
 
     while (is_digit())
-      significand += (char)read();
+      significand.push_back((char)read());
 
     if (is('e')) {
       read();
@@ -302,10 +462,10 @@ Lexer::lex_decimal(string significand, bool explicitly_float) {
       exponent_value *= -1;
 
     return make_shared<Token::DecimalFloat>(
-        _location, stoi(significand), exponent_value, float_bitsize);
+        _location, significand, exponent_value, float_bitsize);
   } else
     return make_shared<Token::DecimalInt>(
-        _location, stoi(significand), int_type, int_bitsize);
+        _location, significand, int_type, stoi(int_bitsize));
 }
 
 shared_ptr<Token::NonDecimalNumber> Lexer::lex_nondecimal() {
@@ -336,7 +496,7 @@ shared_ptr<Token::NonDecimalNumber> Lexer::lex_nondecimal() {
 
     break;
   default:
-    raise(L"BUG");
+    throw "BUG";
   };
 
   Token::NonDecimalNumber::Type type;
@@ -374,6 +534,22 @@ shared_ptr<Token::NonDecimalNumber> Lexer::lex_nondecimal() {
 wchar_t Lexer::read() {
   wchar_t previous = _codepoint;
 
+  if (_is_reading_from_macro) {
+    auto stream = &_macro->output;
+
+    if (stream->eof())
+      _is_reading_from_macro = false;
+    else {
+      _codepoint = stream->get();
+      return previous;
+    }
+  }
+
+  // Reading from the `_input` would not happen
+  // if already read from the macro input.
+  //
+
+  // Move the end location one codepoint forward
   _location.end_row = cursor.row;
   _location.end_column = cursor.col;
 
@@ -390,9 +566,29 @@ wchar_t Lexer::read() {
 
 void Lexer::raise(wstring message) { throw Error(_location, message); }
 
-bool Lexer::is(wchar_t cmp) { return _codepoint == cmp; }
+shared_ptr<Token::Control> Lexer::yield_control(Token::Control::Kind kind) {
+  return make_shared<Token::Control>(_location, kind);
+}
 
+shared_ptr<Token::Value>
+Lexer::yield_value(Token::Value::Kind kind, wstring value) {
+  return make_shared<Token::Value>(_location, kind, value);
+}
+
+bool Lexer::is(wchar_t cmp) { return _codepoint == cmp; }
 bool Lexer::is_underscore() { return is('_'); }
+bool Lexer::is_binary() { return _codepoint == 0x30 || _codepoint == 0x31; }
+
+bool Lexer::is_octadecimal() {
+  return _codepoint >= 0x30 && _codepoint <= 0x37;
+}
+
+bool Lexer::is_hexadecimal() {
+  return (_codepoint >= 0x30 && _codepoint <= 0x39) ||
+         (_codepoint >= 0x41 && _codepoint <= 0x46) ||
+         (_codepoint >= 0x61 && _codepoint <= 0x66);
+}
+
 bool Lexer::is_digit() { return _codepoint >= 0x30 && _codepoint <= 0x39; }
 
 bool Lexer::is_lowercase_latin() {
@@ -414,7 +610,6 @@ bool Lexer::is_uppercase_greek() {
          (_codepoint >= 0x03A3 && _codepoint <= 0x03A9);
 }
 bool Lexer::is_greek() { return is_lowercase_greek() || is_uppercase_greek(); }
-
 bool Lexer::is_alpha() { return is_latin() || is_greek(); }
 bool Lexer::is_alphanum() { return is_alpha() || is_digit(); }
 
@@ -448,186 +643,3 @@ bool Lexer::is_op() {
   return false;
 }
 }; // namespace Onyx
-
-// shared_ptr<Token> Lexer::lex() {
-//   while (!_input->eof()) {
-//     _location.begin_row = cursor.row;
-//     _location.begin_column = cursor.col;
-
-//     if (is(' ')) {
-//       switch (_state.top()) {
-//       case State::Access:
-//         raise(L"Unexpected whitespace");
-//       default:
-//         break;
-//       }
-
-//       postread(); // Consume unused whitespaces
-//       continue;
-
-//     } else if (is('\n')) {
-//       switch (_state.top()) {
-//       case State::Access:
-//       case State::AccessMod:
-//         raise(L"Unexpected newline"); // Callee must be on the same line
-//       default:
-//         break;
-//       }
-
-//       postread(); // Consume the newline
-//       return yield(Token::Newline);
-
-//     } else if (is('\r')) {
-//       switch (_state.top()) {
-//       case State::Access:
-//       case State::AccessMod:
-//         raise(L"Unexpected carriage return");
-//       default:
-//         break;
-//       }
-
-//       buffread(); // Buff and consume the CR
-
-//       if (is('\n')) {
-//         postread(); // Consume the newline
-//         return yield(Token::Newline);
-//       } else
-//         continue;
-
-//     } else if (
-//         is_lowercase_latin() || is_lowercase_greek() || is_underscore()) {
-//       // Identifiers begin with a lowercase letter or an underscore.
-//       // Then they may contain letters, digits and underscores.
-//       //
-
-//       while (is_latin() || is_greek() || is_digit() || is_underscore())
-//         buffread();
-
-//       switch (_state.top()) {
-//       case State::Space:
-//         _state.pop();
-
-//         switch (_state.top()) {
-//         case State::Expression:
-//           // `(foo) bar # Panic!`
-//           //        ^
-//           raise(L"Unexpected identifier");
-//         case State::Empty:
-//           _state.push(State::Reference);
-//         case State::Reference:
-//           // Treated as an argument.
-//           //
-//           // `foo bar`
-//           //      ^
-//           //
-//           return yield(Token::Id);
-//         case State::AccessMod:
-//           // Treated as a successive modifier.
-//           //
-//           // `foo.(bar baz)`
-//           //           ^
-//           //
-//           return yield(Token::Id);
-//         default:
-//           raise(L"BUG: Unhandled case");
-//         }
-
-//         break;
-
-//       case State::Expression:
-//         // `(foo)bar # Panic!`
-//         //       ^
-//         raise(L"Unexpected identifier");
-//       case State::Access:
-//         // `foo.bar`
-//         //      ^
-//         _state.pop(); // Access state is satisified
-//       case State::AccessMod:
-//         // Within access modifiers, the state does not change
-//         //
-//         // `foo.(bar)`
-//         //       ^
-//         //
-//         return yield(Token::Id);
-//       case State::Unop:
-//         // `!foo`
-//         //   ^
-//       case State::Binop:
-//         // `foo + bar`
-//         //        ^
-//         _state.pop(); // No need for the op state anymore
-//       case State::Empty:
-//         _state.push(State::Reference);
-//         return yield(Token::Id);
-//       case State::Reference:
-//         raise(L"BUG: Unhandled case");
-//       }
-
-//     } else if (is('.')) {
-//       switch (_state.top()) {
-//       case State::Expression:
-//         _state.push(State::Access);
-//         return yield(Token::Access);
-//       default:
-//         raise();
-//       }
-
-//     } else if (is('(')) {
-//       postread();
-
-//       switch (_state.top()) {
-//       case State::Empty:
-//       case State::Binop:
-//       case State::Unop:
-//       case State::Call:
-//       case State::Expression:
-//         _state.push(State::Expression);
-//         break;
-//       case State::Access:
-//         _state.push(State::AccessMod);
-//         break;
-//       case State::AccessMod:
-//         raise(); // No expressionas are allowed within a modifiers list
-//       }
-
-//       _terminators.push(Terminator(_location, Token::CloseParen));
-//       return yield(Token::OpenParen);
-
-//     } else if (_codepoint == L'"') {
-//       postread(); // Consume the opening quotes
-
-//       wstring buffer;
-//       bool _is_backslash = false;
-
-//       while (!(_codepoint == L'"' && !_is_backslash)) {
-//         if (_codepoint == L'\\') {
-//           _is_backslash = true;
-//           postread();
-//           continue;
-//         } else {
-//           if (_is_backslash) {
-//             buffer.append(L"\\");
-//             _is_backslash = false;
-//           }
-
-//           buffer.append(wstring(1, _codepoint));
-//           postread();
-//         }
-//       }
-
-//       postread(); // Consume the closing quotes
-//       return make_shared<Token::StringLiteral>(_location, buffer);
-//     }
-
-//     // Nothing matched, just yield the token as-is then.
-//     // Note that we don't know the exact codepoint size
-//     //
-
-//     wstring returned(1, _codepoint);
-//     postread();
-
-//     return make_shared<Token::Other>(_location, returned);
-//   }
-
-//   return make_shared<Token::Eof>(_location);
-// } // namespace Onyx
