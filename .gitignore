@@ -1,4 +1,2 @@
-bin
-cache
+build
 /compile_flags.txt
-dump
