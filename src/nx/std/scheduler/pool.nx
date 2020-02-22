@@ -1,0 +1,40 @@
+import "../mem"
+
+struct Scheduler::Pool
+  private const pool = Deque<Fiber*>()
+  private const mutex : Mutex
+  private const monitor : Monitor
+  private mut counter = 0s
+
+  fun checkout : Fiber*
+    const newid : Size
+
+    mutex.sync -> do
+      @loop -> do
+        if fiber = pool.shift?()
+          return fiber
+        else
+          const old = @atomicget(counter)
+
+          if old == Size::Max
+            monitor.wait(&)
+          else
+            newid = @atomicadd(counter, 1)
+          end
+        end
+      end
+    end
+
+    const fiber = @memalloc(Fiber)
+    fiber -> initialize(id: newid)
+
+    return fiber
+  end
+
+  fun release(fiber : Fiber*) : Void
+    mutex.sync -> do
+      pool.push(fiber)
+      monitor.broadcast()
+    end
+  end
+end

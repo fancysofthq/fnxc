@@ -1,0 +1,45 @@
+primitive Gen<out Yield T(in Backyield U), out Return W>
+  struct NotDoneYet
+  end
+
+  native def done? : Bool
+
+  def result : W
+    unless done?
+      throw NotDoneYet
+    end
+
+    return unsafe { result!! }
+  end
+
+  native unsafe def result! : W
+
+  @[Inline]
+  native gen<T(U)> yield : U
+
+  native def resume : T
+end
+
+gen<T> each
+  mut i = 0u16
+  until i == size { yield self[i]; i += 1 }
+end
+
+def main
+  @schedule(8) -> do
+    const gen = List([1, 2, 3]).map<(FBin64)>
+    mut promises = List<Promise>()
+
+    until gen.done?
+      const &result = alloca FBin64
+
+      gen.yield -> (e) do
+        promises << @async ~> result = e * 0.5b64
+        return result
+      end
+    end
+
+    @await promises
+    @pp gen.result
+  end
+end

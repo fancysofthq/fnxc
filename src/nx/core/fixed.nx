@@ -1,0 +1,88 @@
+# A fixed-point number.
+struct Fixed(
+  Base E : SizeLiteral,
+  Bitsize B : SizeLiteral,
+  Fraction F : SizeLiteral,
+  Signed S : BoolLiteral,
+) { }
+
+# A binary fixed-point number, which may be either signed or unsigned.
+#
+# ```
+# 12.34uq32x2 + UBin32(2).new(5678) == 69.12uq32x2
+# ```
+#
+
+alias Binary(Bitsize B, Fraction F, Signed S) = Fixed(2, B, F, S)
+
+alias Bin(Bitsize B, Fraction F) = Binary(B, F, true)
+alias Bin8(Fraction F) = Bin(8, F)
+alias Bin16(Fraction F) = Bin(16, F)
+alias Bin32(Fraction F) = Bin(32, F)
+alias Bin64(Fraction F) = Bin(64, F)
+
+alias SBin = Bin
+alias SBin8(Fraction F) = SBin(8, F)
+alias SBin16(Fraction F) = SBin(16, F)
+alias SBin32(Fraction F) = SBin(32, F)
+alias SBin64(Fraction F) = SBin(64, F)
+
+alias UBin(Bitsize B, Fraction F) = Binary(B, F, false)
+alias UBin8(Fraction F) = UBin(8, F)
+alias UBin16(Fraction F) = UBin(16, F)
+alias UBin32(Fraction F) = UBin(32, F)
+alias UBin64(Fraction F) = UBin(64, F)
+
+# A signed decimal fixed-point number.
+#
+# *Precision* defines the number of decimal digits stored in a number,
+# and *Scale* defines the permanent decimal scaling factor. For example,
+# `Decimal(5, 2)` allows signed numbers with up to 5 digits and scaling
+# factor of 2, which is enough to store numbers from -999.99 to 999.99.
+#
+# The bitsize occupied by a decimal number is defined by its precision.
+# For example, 16 bits is enough to store numbers from -9999 to 9999.
+#
+# Precision | Bitsize
+# ---       | ---
+# 1..2      | 8
+# 3..4      | 16
+# 5..9      | 32
+# 10..19    | 64
+# 20..38    | 128
+#
+# For zero scale decimals it'd be more efficient to use `Integer` instead.
+#
+# Fixed decimal literals are `W.FdPxS`, where `W` is for whole part,
+# `F` is for fraction, `P` is for precision, and `S` is for scale.
+# For example, `12.34d5x2 == Dec(5, 2).new(1234)`. The `xS` part
+# can be omitted, so the scale would be the default zero.
+#
+
+{%
+  -- Returns bitsize enough to store *decimal*, starting from 8.
+  -- For example, it'd be 8 for 9 and 99, 16 for 999 and 9999 etc.
+  -- Would panic if there is not enough bits to store the digits.
+  local function containing_bitsize(node, digits)
+    local log = math.log(10 ^ digits) / math.log(2)
+    local bits = 8
+
+    while (bits <= 8388607) do
+      if log <= bits then
+        return bits
+      else
+        bits = bits * 2
+      end
+    end
+
+    panic(node, "Too much bits requested for " .. digits ..
+      " digits precision")
+  end
+%}
+
+alias Decimal(
+  Precision P : SizeLiteral,
+  Scale F : SizeLiteral = 0
+) = Fixed(10, \{{ containing_bitsize(site(), P) }}, F, true)
+
+alias Dec = Decimal

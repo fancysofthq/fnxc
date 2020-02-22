@@ -1,0 +1,123 @@
+class String
+  struct NoNulError; end
+
+  struct FormatError
+    const pattern : String
+    const errno : `int
+  end
+
+  getter pointer!! : Char*
+
+  static def {literal : L} : self forall L : StringLiteral
+    new(\{{ L:pointer() }}, \{{ L:size() }})
+  end
+
+  # Initialize a `String` by copying the contents
+  # of the NUL-terminated *chars* pointer into the heap.
+  @[MayRaise(NoNulError)]
+  def initialize(chars : Char*, size : Size)
+  end
+
+  # Copies self, returning a new `String`.
+  #
+  # ```
+  # String{"foo"}.copy == "foo"
+  # ```
+  def copy : @type
+  end
+
+  # Lazily get the string size in bytes.
+  @[NoRaise]
+  const def size : Size
+  end
+
+  # Compare *another* with self.
+  #
+  # ```
+  # String{"foo"}.equals?(String{"bar"}) # => false
+  # String{"foo"}.equals?(String{"foo"}) # => true
+  # ```
+  const def equals?(another : @type) : Bool
+  end
+
+  # Compare *chars* with self.
+  #
+  # ```
+  # String{"foo"}.equals?("bar") # => false
+  # String{"foo"}.equals?("foo") # => true
+  # ```
+  const def equals?(chars : Char*) : Bool
+  end
+
+  delegate == -> equals?
+
+  # Format a string with semantics similar
+  # to C's `printf`, returning a new `String`.
+  #
+  # ```
+  # String{"foo %s %.1f"}.format("bar", 42.17) == "foo bar 42.2"
+  # ```
+  @[MayRaise(FormatError)]
+  const def format(varg : ..T) : @type forall T
+  end
+
+  # Format a string with semantics similar to C's `printf`,
+  # using named placeholders and returning a new `String`.
+  #
+  # NOTE: Any brackets other than parentheses
+  # are also acceptable (e.g. `%[b: .1f]`).
+  #
+  # ```
+  # String{"foo %{b: .1f} %{a: s}"}
+  #   .format(a: "bar", b: 42.17) == "foo 42.2 bar"
+  # ```
+  @[MayRaise(FormatError)]
+  const def format(kwarg : **T) : @type forall T
+  end
+
+  delegate % -> @self.format
+
+  # Append *another* `@type` to self, returning itself.
+  #
+  # ```
+  # String{"foo"}.append(String{"bar"}) == "foobar"
+  # ```
+  def append(another : @type) : @type
+  end
+
+  # Append *chars* to self, returning itself.
+  #
+  # ```
+  # String{"foo"}.append("bar") == "foobar"
+  # ```
+  def append(chars : Char*) : @type
+  end
+
+  delegate += -> @self.append
+
+  # Prepend *other* to self, returning itself.
+  #
+  # ```
+  # String{"foo"}.prepend(String{"bar"}) == "barfoo"
+  # ```
+  def prepend(other : @type) : @type
+  end
+
+  # Prepend *chars* to self, returning itself.
+  #
+  # ```
+  # String{"foo"}.prepend("bar") == "barfoo"
+  # ```
+  def prepend(chars : Char*) : @type
+  end
+
+  # Concatenate self and *other*, returning a new `String`.
+  #
+  # ```
+  # String{"foo"}.concat(String{"bar"}) == "foobar"
+  # ```
+  def concat(other : @type) : @type
+  end
+
+  delegate + -> @self.concat
+end

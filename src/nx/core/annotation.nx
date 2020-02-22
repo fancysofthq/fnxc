@@ -1,0 +1,8 @@
+namespace Core
+  # Would embed an exported function into the binary,
+  # built for given *Arch*. Functions built for the same
+  # architecture are grouped together in a single module.
+  @[ApplicableTo<"export:function">]
+  annotation Embed<Arch : %string>
+  end
+end

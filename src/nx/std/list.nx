@@ -1,0 +1,340 @@
+require "./math"
+
+{%
+  require "math"
+
+  nearest_capacity = function (x)
+    return math.ceil(2 ** math.lg(x))
+  end
+%}
+
+struct List<Type T>
+  derive Container<T>
+  derive Container::Sized<UInt16>
+  derive Container::Enumerable<T>
+  derive Container::Indexable<UInt16, T>
+  derive Container::Beginful<T>
+  derive Container::Endful<T>
+
+  protected getter pointer : T*
+
+  getter capacity : UInt16
+  getter size : UInt16 = 0
+
+  def initialize(ary : Array<T, S>) forall S : %num
+    \{%
+      local capacity = nearest_capacity(S)
+
+      if (capacity > 65536) then
+        panic("List capacity must be in range 0-65536")
+      end
+    %}
+
+    size = \{{ S }}
+    capacity = \{{ capacity }}
+
+    pointer = unsafe { $malloc(\@sizeof(T) * \{{ capacity }}).as(T*) }
+    unsafe { $memcpy(pointer, &ary, \@sizeof(T) * \{{ S }}) }
+
+    \{% if T.type:as_union():has_ref() then %}
+      each -> { @ref(self, &) }
+    \{% end %}
+  end
+
+  # Copy-initialize self, copying *another* list elements.
+  def initialize(another : self)
+    capacity = another->capacity
+    size = another->size
+    pointer = unsafe { $malloc(capacity * \@sizeof(T)).as(T*) }
+    unsafe { $memcpy(pointer, another->pointer, size * \@sizeof(T)) }
+  end
+
+  def initialize(self.capacity)
+    pointer = if capacity > 0
+      unsafe { $malloc(\@sizeof(T) * nearest(capacity)).as(T*) }
+    else
+      T*.nil
+    end
+  end
+
+  def initialize(self.capacity : S = 0) forall S : %num
+    \{%
+      if S < 0 or s > 65536 then
+        panic("List capacity must be in range 0-65536")
+      end
+    %}
+
+    pointer = \{% if S > 0 then %}
+      unsafe { $malloc(\@sizeof(T) * \{{ nearest_capacity(S) }}).as(T*) }
+    \{% else %}
+      T*.nil
+    \{% end %}
+  end
+
+  def finalize
+    each -> \@deref(self, &)
+    unsafe { $free(pointer) }
+  end
+
+  \{% if T.type:as_union():has_ref() then %}
+    def refs?(val : T)
+      any? -> { & == val }
+    end
+  \{% end %}
+
+  def push(val : T) : self
+    \@ref(self, val) # Would be noop if `T` is not `Ref`
+
+    if size == capacity
+      capacity *= 2
+
+      pointer = unsafe
+        $realloc(pointer, \@sizeof(T) * capacity).as(T*)
+      end
+    end
+
+    size += 1
+    unsafe { pointer[size].value = value }
+
+    return self
+  end
+
+  def pop : T
+    if size == 0 { throw IndexError }
+
+    size -= 1
+    const val = unsafe { pointer[size] }
+
+    \@deref(self, val) # Would be noop if `T` is not `Ref`
+    return val
+  end
+
+  def pop? : T~
+    return pop
+  catch IndexError
+    return void
+  end
+
+  def unshift(val : T) : self
+    # TODO:
+  end
+
+  def shift : T
+    # TODO:
+  end
+
+  def shift? : T~
+    return shift
+  catch IndexError
+    return void
+  end
+
+  unsafe def get!!(index : UInt16) : T
+    return pointer[i]
+  end
+
+  const def get(index : UInt16) : T
+    if index >= size { throw IndexError }
+    return unsafe { get!!(index) }
+  end
+
+  const def get?(index : UInt16) : T~
+    return get(index)
+  catch IndexError
+    return void
+  end
+
+  unsafe def set!!(index : UInt16, value : T) : Void
+    pointer[i] = value
+  end
+
+  const def set(index : UInt16, value : T) : Void
+    if index >= capacity
+      resize(index)
+    end
+
+    unsafe { set!!(index, value) }
+  end
+
+  # Resize `self` to fit *capacity*.
+  # Noop if already satisfying the condition.
+  def resize(capacity proposed : UInt16) : self
+    if capacity >= proposed
+      return self
+    end
+
+    pointer = unsafe
+      $realloc(
+        pointer,
+        nearest(proposed) * \@sizeof(T)
+      ).as(T*)
+    end
+
+    return self
+  end
+
+  # Append *another* list to `self`, returning self.
+  #
+  # ```
+  # mut l1 = List([1, 2])
+  # const l2 = List([3, 4])
+  # @assert((l1 += &l2) == [1, 2, 3, 4])
+  # ```
+  def append(another : self*) : self
+    const new_size = size + another->size
+
+    if new_size > capacity
+      begin
+        capacity = nearest(new_size)
+      catch Numeric::Overflow
+        throw SizeError
+      end
+
+      unsafe { $realloc(
+        pointer,
+        capacity * \@sizeof(T)) }
+    end
+
+    size = new_size
+
+    unsafe { $memcpy(
+      pointer,
+      another->pointer,
+      another->size * \@sizeof(T)) }
+
+    return self
+  end
+
+  delegate += to append
+
+  # Concatenate `self` with *another* list,
+  # returning a new list instance.
+  #
+  # ```
+  # const l1 = List([1, 2])
+  # const l2 = List([3, 4])
+  # @assert((l1 + &l2) == [1, 2, 3, 4])
+  # ```
+  const def concat(another : self*) : List<T>
+    const &new = alloca List<T>
+    new.size = size + another->size
+
+    new.capacity = begin
+      nearest(new_size)
+    catch Numeric::Overflow
+      throw SizeError
+    end
+
+    unsafe
+      new.pointer = $malloc(
+        \@sizeof(T) * new.capacity).as(T*)
+
+      $memcpy(
+        new.pointer,
+        pointer,
+        \@sizeof(T) * size)
+
+      $memcpy(
+        new.pointer + size,
+        another->pointer,
+        \@sizeof(T) * another->size)
+    end
+
+    return new
+  end
+
+  delegate + to concat
+
+  def equals?(another : self*) : Bool
+    # If list sizes differ,
+    # return false immediately
+    if size != another->size { return false }
+
+    # If lists point to the same memory,
+    # return true immediately
+    if pointer == another->pointer { return true }
+
+    # Compare elements one-by-one
+    mut index = 0u16
+    each -> do
+      if & != another->[index]
+        # Return false if any of
+        # the elements differ
+        return false
+      end
+
+      index += 1
+    end
+
+    # If all elements are equal,
+    return true
+  end
+
+  delegate eq? to equals?
+  delegate == to equals?
+
+  def includes?(needle : T) : Bool
+    return any? -> { & == needle }
+  end
+
+  const gen<T> each : Void
+    mut i = 0u16
+
+    until i >= size
+      yield self[i]
+      i += 1
+    end
+  end
+
+  const gen<T(Bool)> any? : Bool
+    mut i = 0i16
+
+    until i == size
+      if (yield &)
+        return true
+      end
+
+      i += 1
+    end
+
+    return false
+  end
+
+  const gen<T(Bool)> select : List<T>
+    mut list = List<T>()
+
+    each -> do
+      if (yield &) { list << & }
+    end
+
+    # XXX: This list is actually allocated
+    # on the caller's stack, hence no
+    # copy-initializer is involved
+    return list
+  end
+
+  const gen<T(Bool)> reject : List<T>
+    mut list = List<T>()
+
+    each -> do
+      unless (yield &) { list << & }
+    end
+
+    return list
+  end
+
+  const gen<Tuple<U, T>(U)> reduce(mut initial val : U) : U forall U
+    each -> { val = yield (val, &) }
+    return val
+  end
+
+  const gen<T(U)> map : List<U> forall U
+    mut list = List<U>(capacity)
+    each -> { list << yield & }
+    return list
+  end
+
+  private def nearest(capacity : UInt16)
+    2u16 ** capacity.lg2.ceil
+  end
+end

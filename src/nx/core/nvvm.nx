@@ -1,0 +1,98 @@
+namespace Core::NVVM
+  # If the program is built for arch other than `nvptx`,
+  # then embed the function as an `nvptx` assembly text.
+  # Otherwise, build the function as-is.
+  # Adds LLVM "@kernel" annotation to the function.
+  @[ApplicableTo<"export:function">]
+  annotation Kernel
+    hook @annotated(fun)
+      \{%
+        if not __target.arch:match("^nvptx(64)?")
+          arch = __ENV["NVVM_ARCH"] or panic(
+            "Must specialize NVVM target architecture " ...
+            "using the NVVM_ARCH environment variable")
+
+          ann = __lookup.ann["Core::Embed"]:new({
+            ["Arch"]: arch,
+            ["Subarch"]: nil,
+            ["Vendor"]: "nvidia",
+            ["System"]: "cuda",
+            ["ABI"]: nil
+          })
+
+          fun.annotations:insert(ann)
+        end
+      %}
+    end
+  end
+
+  # > Large, off-chip memory.
+  annotation Global
+  end
+
+  # > Read-only memory shared across all threads.
+  # Applied to `static const` variables by default.
+  annotation Constant
+  end
+
+  struct `3D
+    mut x : Int32
+    mut y : Int32
+    mut z : Int32
+  end
+
+  {%
+    define_3d = function (name, ent)
+      for dim, _ in {"x", "y", "z"} do
+        local emitted = emit([[
+static def $name_$dim
+  asm "llvm"
+    %0 = call i32 @llvm.nvvm.read.ptx.sreg.$ent.$dim();
+    ret %0;
+  end
+end
+]])
+
+        emit((emitted:gsub("$(%w+)", {
+          ["name"] = name,
+          ["dim"] = dim,
+          ["ent"] = ent
+        })))
+      end
+    end
+  %}
+
+  {{ define_3d("grid_dim", "nctaid") }}
+  {{ define_3d("block_dim", "ntid") }}
+  {{ define_3d("block_id", "ctaid") }}
+  {{ define_3d("thread_id", "tid") }}
+
+  struct Grid
+    get dim : `3D
+  end
+
+  struct Block
+    # Make a variable shared between all threads in a block.
+    # > Small, on-chip memory shared among all threads in a CTA.
+    # Similar to NVCC's `__shared__`.
+    # Applied by default to `static mut` autovars.
+    @[ApplicableTo<"autovar">]
+    annotation Shared
+    end
+
+    # Synchronize all threads in a block.
+    # Similar to NVCC's `__syncthreads()`.
+    static const def sync
+      asm "llvm"
+        call void @llvm.nvvm.barrier0();
+      end
+    end
+
+    get id : `3D
+    get dim : `3D
+  end
+
+  struct Thread
+    get id : `3D
+  end
+end

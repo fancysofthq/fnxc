@@ -1,29 +1,37 @@
-struct File
-  enum Flag
-    Read
-    Write
-    Append
-    Extended
-    Binary
-    X
+import "stdio"
 
-    def to_mode
-      switch @self
-      when Read; "r"
-      when Write; "w"
-      when Read | Write; "rw"
-      when Read | Append; "r+"
-      when Write | Append; "w+"
-      when Read | Write | Append; "rw+"
-      else
-        raise "Unsupported mode"
+{%
+  local function validate_mode(caller, mode)
+    local allowed = "rwa+b"
+
+    if target().cimpl == "msvc" then
+      allowed = allowed .. "tcnSRTD"
+    end
+
+    if target().cver >= 2011 then
+      allowed = allowed .. "x"
+    end
+
+    for i = 1, #M do
+      local c = M:sub(i, i)
+
+      if not M:find(c) then
+        panic(caller.args.mode, "Unknown modifier " .. c)
       end
     end
   end
+%}
 
-  const descriptor : `FILE
+class File
+  const stream : IO::Stream
+  var closed? : Bool = false
 
-  static def open(filename : Char*, mode : Flag)
+  static def open(path : String, mode : M) : File forall M : StringLiteral
+    \{% validate_mode(caller(), M) %}
+    open(path, \{{ M }} : String)
+  end
+
+  static def open(path : String, mode : String)
     const result = `fopen(filename, mode.to_mode)
 
     if result.nil?

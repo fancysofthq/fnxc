@@ -1,0 +1,74 @@
+struct Union(..T)
+  struct TypeError
+  end
+
+  # Return the actual union switch value.
+  native private const _switch : UInt
+
+  const def is?(:: U) : Bool forall U
+    return _switch == \{{ self:switch_for(U) }}
+  end
+
+  native unsafe def as!!(:: U) : U forall U
+
+  const def as?(:: U) : U? forall U
+    if is?(U)
+      return unsafe { as!!(U) }
+    else
+      return nil
+    end
+  end
+
+  const def as!(:: U) : U forall U
+    if !is?(U)
+      raise TypeError.new
+    else
+      return unsafe { as!!(U) }
+    end
+  end
+
+  virtual const def nil?
+  virtual const def nonil!
+  virtual unsafe def nonil!!
+
+  \{% if self:is_nilable() then %}
+    const def nil?
+    end
+
+    const def nonil!
+    end
+
+    unsafe def nonil!!
+    end
+  \{% end %}
+
+  virtual const def void?
+  virtual const def novoid!
+  virtual unsafe def novoid!!
+
+  \{% if self:is_voidable() then %}
+    const def void?
+    end
+
+    const def novoid!
+    end
+
+    unsafe def novoid!!
+    end
+  \{% end %}
+
+  virtual const def val?
+  virtual const def val!
+  virtual unsafe def val!!
+
+  \{% if self:is_nilable() or self:is_voidable() then %}
+    const def val?
+    end
+
+    const def val!
+    end
+
+    unsafe def val!!
+    end
+  \{% end %}
+end

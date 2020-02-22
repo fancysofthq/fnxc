@@ -1,163 +1,134 @@
-# 1. We have `threadsafe`, but would it be
-# threadsafe with threads other than Scheduler?
-# If no, need to build-in the Scheduler then.
-#
-# Answer is "yes". `threadsafe` is about
-# concurrent access, atomics, fences.
-#
-# 2. What to do with errors raised in promises?
-class Scheduler
-  protected static var threads : Array(`thrd_t)
+import "threads"
+import "linux/futex"
 
-  private static {
-    var promise_queue = Queue(Promise).new
-    const mutex : `mtx_t*
-    const monitor : `cnd_t*
-    var active_promises_count = 0
-    var terminating = false
-  }
+struct Scheduler
+  struct Thread
+    const handler : $thrd_t
+    const queue : Deque<&Proc<(Void)>>*
+    const mutex : Mutex*
+  end
 
-  static def run(threads_count : Size, proc : ~>)
-    unsafe
-      mutex = `malloc @sizeof(`mtx_t)
-      `mtx_init(mutex, `mtx_timed)
-    end
+  private const pool : Pool
+  private const threads : List<Thread*>
+  private const thread_limit : UInt8
 
-    async(proc)
+  @[Threadlocal]
+  private const queue : Deque<&Proc<(Void)>>
 
-    const start = ~> loop do
-      Scheduler.yield
+  @[Threadlocal]
+  private const queue_mutex : Mutex
 
-      if terminating
-        break
-      end
-    end
+  static fun run(thread_limit : UInt8, ~>)
+    const instance = self(thread_limit)
+    instance.async(yield)
+    instance.run()
+  end
 
-    threads_count.times do |i|
-      const id = uninitialized thrd_t
-
-      const code = unsafe
-        `thrd_create(&id, start, &i))
-      end
-
-      validate_thread_code!(code)
-
-      threads << id
-    end
-
-    threads.each do
-      const code = unsafe { `thrd_join(&, nil) }
-      validate_thread_code!(code)
+  fun initialize(self.thread_limit)
+    thread_limit.times ~> (index) do
+      mut t = @memalloc(Thread)
+      const payload = @memalloc(Tuple<Scheduler*, Thread*>)
+      unsafe { $thrd_create(t->&handler, onyx_thread_start, &payload) }
+      threads.push(t)
     end
   end
 
-  static threadsafe {
-    def async(proc : ~> T) : Promise(T) forall T
-      const promise = Promise(T).new(proc)
+  fun finalize
+    threads.each ~> unsafe { @memfree(&) }
+  end
 
-      unsafe { `mtx_lock(mutex) }
-      volatile { promise_queue.push(promise) }
+  export void onyx_thread_start(void *arg) {
+    const payload = unsafe { @cast(arg, Tuple<Scheduler*, Thread*>*) }
 
-      unsafe
-        `cnd_broadcast(monitor)
-        `mtx_unlock(mutex)
-      end
+    *payload[1]->queue = *payload[0] |> unsafe { &.&(private)queue }
+    *payload[1]->mutex = *payload[0] |> unsafe { &.&(private)mutex }
+    const self : Scheduler* = *payload[1]
 
-      return promise
-    end
+    unsafe { @memfree(payload) }
 
-    # RFC: Resolve this exact promise with higher priority?
-    def await(promise : Promise(T)) : T forall T
-      loop do
-        @type.yield
+    @loop ~> do
+      if proc = queue.shift?
+        @[NoRaise] proc()
+      elsif threads.size > 1
+        mut stole? = false
 
-        if promise.resolved?
-          return unsafe { promise.unsafe_result }
-        end
-      end
-    end
+        threads.each ~> (other) do
+          # Skip the same thread
+          if (self == other) { continue }
 
-    # NOTE: The sleep time is not exact, as a thread may be busy resolving
-    # other promises. Consider using other sleep methods for exact times.
-    def sleep(time : Time)
-      @type.yield(Time.now + time)
-    end
-
-    def sleep(time : Numeric)
-      sleep(Time.new(time))
-    end
-
-    # Yield current thread to resolve some promises.
-    private def yield(until : Time? = nil) : Void
-      var locked = false
-
-      loop do
-        unless locked
-          const code = if time
-            unsafe { `mtx_timedlock(mutex, until.utc) }
-          else
-            unsafe { `mtx_lock(mutex) }
-          end
-
-          if code == unsafe { `thrd_timedout }
-            return
-          elsif code != unsafe { `thrd_success }
-            @bug "Unexpected code %d" % code
-          end
-        end
-
-        volatile
-          if terminating { break }
-
-          if const promise = promise_queue.shift?
-            active_promises_count += 1
-            unsafe { `mtx_unlock(mutex) }
-            locked = false
-
-            promise.resolve
-
-            unsafe { `mtx_lock(mutex) }
-            active_promises_count -= 1
-            unsafe { `cnd_broadcast(monitor) }
-            unsafe { `mtx_unlock(mutex) }
-
+          # Steal a half of the jobs from another thread
+          if steal(self, other)
+            stole? = true
             break
-
-          elsif active_promises_count > 0
-            if time
-              unsafe { `cnd_timedwait(monitor, mutex, until.utc) }
-            else
-              unsafe { `cnd_wait(monitor, mutex) }
-            end
-
-            locked = true
-
-          else
-            # Once we've caught a condition when
-            # there are neither queued nor active promises,
-            # all threads are scheduled for termination.
-            #
-
-            terminating = true
-            unsafe { `mtx_unlock(mutex) }
-            break
-
           end
         end
-      end
-    end
 
-    private def validate_thread_code!(code : `int)
-      case i
-      when `thrd_success; return
-      when `thrd_timedout; @bug "Unexpected thread timed out"
-      when `thrd_busy; @bug "Thread unavailable"
-      when `thrd_nomem; raise OutOfMemory.new
-      when `thrd_error; raise UnhandledError.new
+        if !stole?
+          wait_for_job()
+        end
       else
-        @bug "Unhandled thread return code %d" % i
+        # There are no jobs in the queue, and this is the only thread.
+        # The program should terminate then
+        break
       end
     end
   }
-end
 
+  private fun steal(to : Thread*, from : Thread*) : Size
+    from->mutex->lock()
+    const fq = from->queue
+
+    if fq->size > 0
+      to->mutex->lock()
+
+      const tq = to->queue
+      const count = fq->size // 2
+
+      tq->resize(count)
+
+      unsafe { @memcopy(
+        source: fq->(private)pointer[fq->(private)offset],
+        destination: fq->(private)pointer,
+        size: count * @sizeof(Job)) }
+
+      fq->(private)offset += count
+      tq->(private)size = count
+
+      to->mutex->unlock()
+      from->mutex->unlock()
+
+      ret count
+    else
+      from->mutex->unlock()
+      ret 0
+    end
+  end
+
+  private fun wait_for_jobs
+  end
+
+  fun run
+    threads.each ~> $thrd_join(&.handler)
+  end
+
+  static fun wait(mutex : Mutex, until time : Time~)
+  end
+
+  static fun unlock(mutex : Mutex)
+  end
+
+  static fun wait(covar : Covar, mutex : Mutex, until time : Time~)
+  end
+
+  static fun signal(covar : Covar)
+  end
+
+  static fun broadcast(covar : Covar)
+  end
+
+  static fun wait_readable(fd : File::Descriptor, until time : Time~)
+  end
+
+  static fun wait_writeable(fd : File::Descriptor, until time : Time~)
+  end
+end

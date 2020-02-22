@@ -1,0 +1,30 @@
+# Freestanding `.ptx` is compiled with:
+#
+# ```console
+# $ onyxc export kernel.nx \
+#   -t:arch nvptx64 \
+#   -o kernel.ptx \
+#   -h kernel.h
+# ```
+#
+
+require "core/nvvm"
+require "@nvidia/cuda"
+
+# Device function to add the elements of two arrays.
+@[Core::NVVM::Kernel]
+export void add(int n, float* x, float* y) {
+  mut index : Int16 =
+    Core::NVVM.block_id_x *
+    Core::NVVM.block_dim_x +
+    Core::NVVM.thread_id_x
+
+  mut stride : Int16 =
+    Core::NVVM.block_dim_x *
+    Core::NVVM.grid_dim_x
+
+  while index < n
+    unsafe { y[index] = x[index] + y[index] }
+    index += stride
+  end
+}

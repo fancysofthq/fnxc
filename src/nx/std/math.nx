@@ -1,0 +1,8 @@
+namespace Math
+  virtual def sqrt(num : Integer) : Float
+  virtual def sqrt(num : Float) : Float
+  virtual def sqrt(num : Posit(B)) : Posit(B) forall B
+
+  virtual def round(num : Float) : Integer
+  virtual def round(num : Posit) : Integer
+end

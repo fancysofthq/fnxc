@@ -1,0 +1,197 @@
+namespace CUDA
+  # Mark a function as a CUDA kernel function.
+  # Similar to NVCC's `__global__`.
+  @[ApplicableTo<"export.function">]
+  annotation Kernel
+    hook @annotated(fun)
+      \{% fun.annotations.add(__annotation("Target"):new("nvptx")) %}
+    end
+  end
+
+  abstract struct ID
+    abstract const def x : Int32
+    abstract const def y : Int32
+    abstract const def z : Int32
+  end
+
+  {%
+    define_3d = function (ent)
+      for d, _ in {"x", "y", "z"} do
+        local e = emit([[
+const def $d
+  asm "llvm"
+    %0 = call i32 @llvm.nvvm.read.ptx.sreg.$ent.$d()
+    ret %0
+  end
+end
+]])
+
+        emit((e:gsub("$(%w+)", { "d" = d, "ent" = ent })))
+      end
+    end
+  %}
+
+  struct Grid
+    struct ID < ^::ID
+      {% define_3d("tid") %}
+    end
+  end
+
+  def grid : Grid
+  end
+
+  struct Block
+    # Make a variable shared between all threads in a block.
+    # Similar to NVCC's `__shared__`.
+    @[ApplicableTo<"autovar">]
+    annotation Shared
+    end
+
+    # Synchronize all threads in a block.
+    # Similar to NVCC's `__syncthreads()`.
+    static async def sync
+    end
+
+    struct ID < ^::ID
+      {% define_getters("ctaid") %}
+    end
+  end
+
+  # The current CUDA block.
+  def block : Block
+  end
+
+  struct Thread
+    def id : UInt16
+      asm "llvm"
+        @llvm.nvvm.read.ptx.sreg.tid.x()
+      end
+  end
+
+  def thread : Thread
+    asm
+
+  end
+
+  # A CUDA device pointer. It must not be dereferenced on host.
+  struct DevicePointer<T>
+    # A device may have pointer size different from host's.
+    #
+
+    virtual alias USize
+    virtual alias SSize
+
+    {{
+      local size = ext.cuda.unified_pointer_size()
+      "alias USize => UInt<" .. size .. ">\n" ..
+      "alias SSize => SInt<" .. size .. ">\n"
+    }}
+
+    alias Size => USize
+  end
+
+  # A CUDA Unified Memory pointer.
+  # It can be dereferenced both on device and host.
+  struct UnifiedPointer<T>
+    # A unified pointer size may be different from host's.
+    #
+
+    virtual alias USize
+    virtual alias SSize
+
+    {{
+      local size = ext.cuda.unified_pointer_size()
+      "alias USize => UInt<" .. size .. ">\n" ..
+      "alias SSize => SInt<" .. size .. ">\n"
+    }}
+
+    alias Size => USize
+  end
+
+  struct Device
+    getter id : Int16
+  end
+
+  def get_device_count : Int16
+  end
+
+  def set_device(id : Int16)
+  end
+
+  def get_device(id : Int16)
+  end
+
+  # Allocate *bytes* in the device memory.
+  # #:overload-summary Device memory must not
+  # be dereferenced on the host.
+  def allocate(
+    bytes : DevicePointer::Size
+  ) : DevicePointer<Void>
+  end
+
+  # Allocate *count* objects of type *U* in the device memory.
+  overload allocate(
+    count : DevicePointer::Size
+  ) : DevicePointer<U[]> forall U
+  end
+
+  # Allocate array of type *U* of size *S* in the device memory.
+  overload allocate : DevicePointer<U[S]> forall U, S : %num
+  end
+
+  # Allocate a single object of type *U* in the device memory.
+  overload allocate : DevicePointer<U> forall U
+  end
+
+  # Allocate *bytes* in the Unified Memory section.
+  # #:overload Unified Memory is accessible both to host and device.
+  unsafe def allocate_unified(
+    bytes : DevicePointer::Size
+  ) : UnifiedPointer<Void>
+  end
+
+  unsafe overload allocate_unified(
+    count : DevicePointer::Size
+  ) : UnifiedPointer<U[]> forall U
+  end
+
+  unsafe overload allocate_unified
+  : UnifiedPointer<U[S]> forall U, S : %num
+  end
+
+  unsafe overload allocate_unified : UnifiedPointer<U>
+  end
+
+  def copy(
+    from : UnifiedPointer<Void>,
+    to : DevicePointer<Void>,
+    size : UnifiedPointer::Size
+  ) forall T, S : %num
+  end
+
+  # Copy an array from host to device.
+  def copy(
+    from : T[S]*,
+    to : DevicePointer<T[S]>
+  ) forall T, S : %num
+  end
+
+  # Free a Unified Memory pointer.
+  def free(ptr : ::Pointer)
+  end
+
+  # Free a device pointer.
+  overload free(ptr : Pointer)
+  end
+
+  def run(
+    blocks : Size,
+    threads : Size,
+    function : F,
+    ..args : ..T
+  ) forall F : %def, T
+  end
+
+  async def sync
+  end
+end

@@ -1,0 +1,4 @@
+require "./big/*"
+
+namespace Big
+end

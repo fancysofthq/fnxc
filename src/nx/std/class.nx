@@ -1,55 +1,304 @@
-# The module all classes derive from.
-@[Pack]
-module Class < Struct
-  private var _arc_deleted? : Bit
+require "./mem"
 
-  {% if target.size == 16 %}
-    private var _arc_gap : UInt(3)
-    private var _arc_counter : UInt({{ 12 }})
-  {% else if target.size == 32 %}
-    private var _arc_gap : UInt(4)
-    private var _arc_counter : UInt({{ 27 }})
-  {% else if target.size == 64 %}
-    private var _arc_gap : UInt(5)
-    private var _arc_counter : UInt({{ 58 }})
-  {% end %}
+# The module all classes implicitly derive from.
+# This module implicitly derives from the `Struct` module.
+#
+# The module is also called "class header".
+# The header byte size is undefined.
+#
+# In the canonical implementation, classes use ARC for garbage collection.
+# During the lifetime, class instances carry two counters in their headers —
+# one goes for strong references, and another for weak.
+#
+@[Reorder]
+@[Underiveable]
+private module Class
+  @[ForceDerive]
+  derive Struct
+
+  @[Pack]
+  struct __ARCParams
+    # It's up to the runtime to determine whether is
+    # the current instance  is theoretically accessible
+    # from multiple threads. If so, the bit is set to 1.
+    var concurrent : Bit = 0
+
+    # Used in the ARC cleanup routine.
+    var marked : Bit = 0
+  end
+
+  private var __arc_params = __ARCParams.new
+
+  \{% if __target().size == 16 then %}
+    private var __arc_strong_counter : UInt(12) = 0
+    private var __arc_weak_counter : UInt(12) = 0
+  \{% else if __target().size == 32 then %}
+    private var __arc_strong_counter : UInt(27) = 0
+    private var __arc_weak_counter : UInt(27) = 0
+  \{% else if __target().size == 64 then %}
+    private var __arc_strong_counter : UInt(56) = 0
+    private var __arc_weak_counter : UInt(56) = 0
+  \{% else %}
+    \{% panic("Unsupported target size for class implementation") %}
+  \{% end %}
+
+  @[Default]
+  def refs(Undef -> Undef)
+    \{% for var, _ in __type().vars:ipairs() do %}
+      \{% if var:is_class() then %}
+        yield self.\{{ var }}
+      \{% end %}
+    \{% end %}
+  end
+
+  @[Hook]
+  private macro @instance_variables_finalized
+    # Once a class' instance variables are finalized,
+    # `#refs?` methods should be defined for them.
+    \{% for var, _ in __type().vars:ipairs() do %}
+      \{% if var.type:is_union() then %}
+        \{% for type, _ in var.type:class_types():ipairs() do %}
+          def refs?(ref : \{{ type }}) : Bool
+            return !!(self.\{{ var }}.as?(\{{ type }}).try -> & == ref)
+          end
+        \{% end %}
+      \{% else if var.type:is_class() then %}
+        def refs?(ref : \{{ var.type }}) : Bool
+          return self.\{{ var }} == ref
+        end
+      \{% end %}
+    \{% end %}
+  end
+
+  @[Hook]
+  private macro @instance_method_defined(def)
+  on \{% def.name == "refs" %}
+    \{%
+      -- Specialize the method immediately,
+      -- effectively disallowing it to have
+      -- any non-standard behavior
+      def.specialize()
+
+      -- Iterate through the method's yielded types
+      -- and panic if any of them is not a class
+      for type in def.yield_type:as_union():ipairs() do
+        if not type:is_class() then
+          panic(def, "`refs` method " ..
+            "must yield class instances only")
+        end
+      end
+    %}
+  end
+
+  static def new(...) : mut self
+    # Allocate space enough for the instance with the header
+    mut instance = unsafe
+      $malloc(@classsize + @sizeof(self))
+        |> @cast(&, self)
+        |> @valueof
+    end
+
+    # Initialize the freshly allocated instance
+    instance.initialize(...)
+
+    return instance
+  end
+
+  @[Default]
+  def finalize
+    self.refs -> @deref(self, &)
+  end
 end
 
-macro @ref(er, ee)
-  \{% if ee:type() < Class then %}
-    \{% if ee:is_concurrent() then %}
-      @atomicadd(\{{ ee }}.(private)_arc_counter, 1)
+# Weak-reference a *child* instance.
+# Would not panic if it is not a class.
+macro @ref(parent, child)
+  \{% if child:type() < Class then %}
+    \{% if child:is_concurrent() == nil then %}
+      if \{{ child }}.(private)__arc_params.concurrent
+        @atomicadd(\{{ child }}.(private)__arc_weak_counter, 1)
+      else
+        \{{ child }}.(private)__arc_weak_counter += 1
+      end
+    \{% else if child:is_concurrent() then %}
+      @atomicadd(\{{ child }}.(private)__arc_weak_counter, 1)
     \{% else %}
-      \{{ ee }}.(private)_arc_counter += 1
-    \{% end %}
-  \{% else if ee:type() < Struct then %}
-    \{% for field in ee:type():instance_fields() do %}
-      @ref(\{{ ee }}.(explicit)\{{ field }})
-    \{% end %}
-
-    \{% if ee:type():has_method("referencees") then %}
-      \{{ ee }}.(explicit)referencees -> @ref(&)
+      \{{ child }}.(private)__arc_weak_counter += 1
     \{% end %}
   \{% end -- Noop otherwise %}
 end
 
-macro @deref(er, ee)
-  \{% if ee:type() < Class then %}
-    \{% if ee:is_concurrent() then %}
-      const old = @atomicsub(\{{ ee }}.(private)_arc_counter, 1)
-      if old == 1
+# Weak-reference a *child* instance,
+# panicking if it is not a class.
+macro @ref!(parent, child)
+  \{% if child:type() < Class then %}
+    @ref(\{{ parent }}, \{{ child }})
+  \{% else %}
+    \{% panic(child, "Can not reference a non-class instance") %}
+  \{% end %}
+end
 
+# #:nodoc
+# This intrinsic is intended to be called by the compiler only.
+macro @__strong_ref(parent, child)
+  \{% if child:type() < Class then %}
+    \{% if child:is_concurrent() == nil then %}
+      if \{{ child }}.(private)__arc_params.concurrent
+        @atomicadd(\{{ child }}.(private)__arc_strong_counter, 1)
+      else
+        \{{ child }}.(private)__arc_strong_counter += 1
+      end
+    \{% else if child:is_concurrent() then %}
+      @atomicadd(\{{ child }}.(private)__arc_strong_counter, 1)
     \{% else %}
-      const old = \{{ ee }}.(private)_arc_counter
-      \{{ ee }}.(private)_arc_counter -= 1
+      \{{ child }}.(private)__arc_strong_counter += 1
     \{% end %}
-  \{% else if ee:type() < Struct then %}
-    \{% for field in ee:type():instance_fields() do %}
-      @ref(\{{ ee }}.(explicit)\{{ field }})
+  \{% else %}
+    \{% panic(child, "BUG: The compiler attempted to \
+      strong-reference a non-class instance") %}
+  \{% end %}
+end
+
+# Weak-dereference a *child* instance.
+# Would not panic if it is not a class.
+macro @deref(parent, child)
+  \{% if child:type() < Class then %}
+    \{% if child:is_concurrent() == nil then %}
+      if \{{ child }}.(private)__arc_params.concurrent
+        const @:old = @atomicsub(\{{ child }}.(private)__arc_weak_counter, 1)
+        if @:old <= 0 { @bug("Weak-ref counter can not be less than 0") }
+      else
+        const @:new = \{{ child }}.(private)__arc_weak_counter -= 1
+        if @:new < 0 { @bug("Weak-ref counter can not be less than 0") }
+      end
+    \{% if child:is_concurrent() then %}
+      const @:old = @atomicsub(\{{ child }}.(private)__arc_weak_counter, 1)
+      if @:old <= 0 { @bug("Weak-ref counter can not be less than 0") }
+    \{% else %}
+      const @:new = \{{ child }}.(private)__arc_weak_counter -= 1
+      if @:new < 0 { @bug("Weak-ref counter can not be less than 0") }
+    \{% end %}
+  \{% end -- Noop otherwise %}
+end
+
+# Weak-dereference a *child* instance,
+# panicking if it is not a class.
+macro @deref!(parent, child)
+  \{% if child:type() < Class then %}
+    @deref(\{{ parent }}, \{{ child }})
+  \{% else %}
+    \{% panic(child, "Can't dereference a non-class instance") %}
+  \{% end %}
+end
+
+# #:nodoc
+# This intrinsic is intended to be called by the compiler only.
+#
+# Strong-dereferences a class instance.
+#
+# If both strong and weak reference counters are zero, then
+# the instance is destroyed.
+#
+# Otherwise, if strong is greater than zero, nothing happens.
+#
+# If strong is zero and weak is not, then we try to find
+# cyclic references; if none found, the instance continues to live.
+# If the amount of cyclic references equals to the weak counter,
+# and none of the cyclic instances have any strong references,
+# then all the involved instances are destroyed.
+#
+macro @__strong_deref(parent, child)
+  \{% if child:type() < Class then %}
+    const @:strong : Size
+
+    \{% if child:is_concurrent() == nil then %}
+      if \{{ child }}.(private)__arc_params.concurrent
+        @:strong = @atomicsub(
+          \{{ child }}.(private)__arc_strong_counter, 1) - 1
+      else
+        @:strong = \{{ child }}.(private)__arc_strong_counter -= 1
+      end
+    \{% else if child:is_concurrent() then %}
+      @:strong = @atomicsub(
+        \{{ child }}.(private)__arc_strong_counter, 1) - 1
+    \{% else %}
+      @:strong = \{{ child }}.(private)__arc_strong_counter -= 1
     \{% end %}
 
-    \{% if ee:type():has_method("referencees") then %}
-      \{{ ee }}.(explicit)referencees -> @ref(&)
-    \{% end %}
+    if @:strong < 0
+      @bug("Strong-ref counter can not be less than 0")
+    else if @:strong == 0
+      const @:weak : Size
+
+      if \{{ child }}.(private)__arc_params.concurrent
+        @:weak = @atomicsub(
+          \{{ child }}.(private)__arc_weak_counter, 1) - 1
+      else
+        @:weak = \{{ child }}.(private)__arc_weak_counter -= 1
+      end
+
+      if @:weak < 0
+        @bug("Weak-ref counter can not be less than 0")
+      else if @:weak == 0
+        # If both strong and weak counters are zero,
+        # will destroy the instance then
+        #
+
+        \{{ child }}.finalize()
+        @memfree(@pointerof(\{{ child }}))
+      else
+
+        \{%
+          -- The child may not be fully defined at the moment
+          -- of the intrinsic call (i.e. it may be further
+          -- reopened and altered with additional instance
+          -- variables). Thus we have to delay the `refs`
+          -- method specialization.
+
+          local em = [[
+            \\{%
+              local var = _locals()['$name']
+              local def = var:instance_methods()["refs"]
+              def:ensure_specialized()
+              local yielded = def.yield_type
+            \%}
+          ]]
+
+          emit((em:gsub('$(%w+)', { name = child:dump() })))
+        %}
+
+        \{{ child }}.refs -> (ref) do
+          case ref.classid
+          \{%
+            local em = [[
+              \\{% for type, _ in yielded:as_union():ipairs() do \%}
+                when \\{{ type.class_id }}
+                  -- TODO:
+              end
+            ]]
+          %}
+        end
+
+        \{%
+          -- Determine if *target* class could possibly reference
+          -- *source* class, either directly or indirectly.
+          local can_reference(source, target)
+            local yielded = source:instance_methods.refs.yield_type
+
+            for type in yielded:as_union():ipairs() do
+              if type == target or can_reference(type, target) then
+                return true
+              end
+            end
+
+            return false
+          end
+
+          if can_reference(child, child)
+        %}
+      end
+    else
+      # Strong RC > 0, therefore do nothing
+    end
   \{% end -- Noop otherwise %}
 end

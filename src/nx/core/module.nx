@@ -1,0 +1,21 @@
+# This module is implicitly derived by all modules.
+# NOTE: It can not be derived explicitly.
+#
+# A module is a entity without a lifespan, i.e. it
+# can be neither created nor destroyed.
+#
+# A module can have instance and static
+# variables, constants and methods declared;
+# as well as other namespaces.
+#
+# ```
+# module Foo
+# end
+#
+# def main
+#   @assert({{ Foo < Module }})
+# end
+# ```
+module Module
+  derive Namespace
+end

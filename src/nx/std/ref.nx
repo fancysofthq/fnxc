@@ -1,0 +1,121 @@
+# A `Ref` is strong if:
+#
+#   * It's an automatic variable
+#   * It's a part of a closure
+#
+# A `Ref` is **weak* if:
+#
+#   * It's an object's variable
+#
+struct Ref<T>
+  private struct Header
+    mut strong_rc : Pointer::Size
+    mut weak_rc : Pointer::Size
+  end
+
+  private const raw : Void*
+
+  impl initialize(val : T)
+    unsafe
+      raw = $malloc(@sizeof(Header) + \@sizeof(T))
+      raw.as(Header*)->strong_rc = 1
+      raw.as(Header*)->weak_rc = 0
+      $memcopy(raw + @sizeof(Header), &val, \@sizeof(T))
+    end
+  end
+
+  # The *strong?* argument is passed by the compiler
+  # implicitly depending on the context.
+  impl initialize(ref : Ref<T>, strong? : Bool)
+    raw = ref.raw
+
+    if strong?
+      @atomicadd(unsafe { raw.as(Header*).&strong_rc }, 1)
+    else
+      @atomicadd(unsafe { raw.as(Header*).&weak_rc }, 1)
+    end
+  end
+
+  # The *strong?* argument is passed by the compiler
+  # implicitly depending on the context.
+  impl finalize(strong? : Bool)
+    if strong?
+      const strong = @atomicsub(unsafe {
+        raw.as(Header*).&strong_rc }, 1)
+
+      if strong == 1 && @atomicget(unsafe {
+        raw.as(Header*).&weak_rc
+      }) == 0
+        @destroy(self)
+      end
+    else
+      const weak = @atomicsub(unsafe {
+        raw.as(Header*).&weak_rc }, 1)
+
+      if weak == 1 && @atomicget(unsafe {
+        raw.as(Header*).&strong_rc
+      }) == 0
+        @destroy(self)
+      end
+    end
+  end
+
+  def pointer : T*
+    return unsafe { (raw + @sizeof(Header)).as(T*) }
+  end
+end
+
+# Weak-reference (referenc-) *ee* from *er*.
+# This intrinsic is automatically invoked by
+# the compiler upon referencing a class field.
+macro @ref(er, ee)
+  \{% if ee:type() < Class then %}
+    @atomicadd(unsafe
+      \{{ ee }}.(private)raw.as(Header*).&weak_rc, 1)
+    end)
+  \{% end --[[ Noop otherwise ]] %}
+end
+
+# Weak-dereference (referenc-) *ee* from *er*.
+# This intrinsic is automatically invoked by
+# the compiler upon dereferencing a class field.
+macro @deref(er, ee)
+  \{% if ee:type() < Class then %}
+    @:weak = @atomicsub(unsafe
+      \{{ ee }}.(private)raw.as(Header*).&weak_rc, 1)
+    end)
+
+    if @:weak == 1
+      @:strong = @atomicget(unsafe
+        \{{ ee }}.(private)raw.as(Header*).&strong_rc)
+      end)
+
+      if @:strong == 1
+        @destroy(ee)
+      end
+    end
+  \{% end --[[ Noop otherwise ]] %}
+end
+
+# Trigger reference destroy.
+# All RCs are assumed to be zero, and *ref* must be a ref instance.
+private macro @destroy(ref)
+  \{%
+    local filter = function(f)
+      return f.type:is_class()
+    end
+  %}
+
+  \{% if ref.type:has_method("refs") %}
+    ref.refs -> @deref(ref, &)
+  \{% end %}
+
+  \{% if ref.type.has_method("finalize") %}
+
+
+  \{% for field, _ in ref.fields:select(filter):ipairs() do  %}
+    \@deref(ref, ref.(private)\{{ field }})
+  {% end %}
+
+  \{% %}
+end

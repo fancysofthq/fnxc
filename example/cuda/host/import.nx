@@ -1,0 +1,78 @@
+# A program can be built separately
+# for host and device architectures:
+#
+# ```console
+# # Build NVVM assembly
+# $ onyxc export kernel.nx \
+#   -t:arch nvptx64 \
+#   -o kernel.ptx \
+#   -H kernel.h
+#
+# # Build the host program
+# $ onyxc build host/import.nx
+# ```
+#
+# This would require `CUDA.load("../device.ptx")`
+# prior to calling `CUDA.run`.
+#
+
+require "@nvidia/cuda"
+import "../device.h"
+
+def fun main
+  const n = 1 << 20
+
+  # Allocate Unified Memory accessible from CPU and GPU
+  #
+
+  const x : FBin32[]* = unsafe { CUDA.allocate_managed(n) }
+  const y : FBin32[]* = unsafe { CUDA.allocate_managed(n) }
+
+  # Initialize `x` and `y` arrays on the host
+  #
+
+  mut i = 0
+  while i < n
+    unsafe
+      x[i] = 1
+      y[i] = 2
+    end
+
+    i += 1
+  end
+
+  # Run the device function on the GPU
+  #
+
+  const block_size = 256;
+  const num_blocks = (n + block_size - 1) / block_size;
+
+  CUDA.load("../device.ptx")
+  unsafe { CUDA.run(num_blocks, block_size, $add, n, x, y) }
+
+  # Wait for GPU to finish before accessing on host
+  #
+
+  CUDA.sync()
+
+  # Check for errors (all values should be 3.0)
+  #
+
+  mut max_error = 0f32;
+  i = 0
+
+  while i < n
+    max_error = Std::Math.max(max_error, (y[i] - 3).abs)
+    i += 1
+  end
+
+  Std::Out << "Max error: " << max_error << "\n";
+
+  # Free memory
+  #
+
+  unsafe
+    CUDA.free(x)
+    CUDA.free(y)
+  end
+end

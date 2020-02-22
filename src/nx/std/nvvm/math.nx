@@ -1,0 +1,19 @@
+# CUDA refinements to math operations.
+#
+# Requires `libdevice` to be linked.
+# See https://docs.nvidia.com/cuda/libdevice-users-guide/index.html.
+#
+# ```
+# require "std/nvvm/math"
+# using refinement Std::NVVM::Math
+# ```
+refinement Std::NVVM::Math
+  import "cuda_computations.h" from "libdevice"
+
+  reopen Math
+    redef abs(x : SInt32)
+      return unsafe { $__nv_abs(x) }
+    end
+  end
+end
+

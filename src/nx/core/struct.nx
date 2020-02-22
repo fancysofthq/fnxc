@@ -1,0 +1,23 @@
+module Struct
+  @[Default]
+  def initalize(
+    \{% if type():initializeable_vars:size() > 0 %}
+      ..,
+      \{% for var in type():initializeable_vars do %}
+        \{{ var.name }} : \{{ var.type }}
+        \{{
+          if var.default then
+            " = " .. var.default.dump()
+          end
+        }},
+      \{% end %}
+    \{% end %}
+  )
+
+  virtual def finalize
+
+  private def __implicit_finalize
+    # TODO: Call `#__implicit_finalize` and
+    # `#finalize` (if defined) on all fields
+  end
+end

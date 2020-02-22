@@ -1,12 +1,9 @@
-class Promise(out Result T)
-  private const proc : Proc(T)
-
-  getter var mutex = Mutex.new
-  getter var signal = Signal.new
-  private var resolved = false
-  private var in_progress = false
-
-  unsafe var result = uninitialized T
+# Promise is a reference type, i.e. it can
+# be used w/o concrete generic arguments.
+primitive Promise<T(Void)>
+  private const proc : Proc<T(Void)>
+  private mut resolved = false
+  private mut in_progress = false
 
   def initialize(self.proc)
   end

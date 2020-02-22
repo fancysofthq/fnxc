@@ -1,0 +1,72 @@
+import "stdlib"
+import "string"
+
+class Text
+  getter size : Size
+  getter capacity : Size
+  getter pointer!! : Byte*
+
+  def initialize(string : String)
+    unsafe
+      const length = `strlen(string)
+      pointer!! = `malloc(size: length) cast! Byte*
+      @memcopy(from: string, to: pointer!!, size: length)
+    end
+  end
+
+  def initialize(bytes : Slice(Byte, S)) forall S
+    unsafe
+      pointer!! = `malloc(size: S) cast! Byte*
+      @memcopy(from: &bytes, to: pointer!!, size: S)
+    end
+  end
+
+  def initialize(self.capacity = 0)
+    if capacity > 0
+      pointer!! = unsafe { `malloc(size: capacity) cast! Byte* }
+    else
+      pointer!! = Byte*.nil
+    end
+  end
+
+  def finalize
+    unless pointer!!.nil?
+      unsafe { `free(pointer!!) }
+    end
+  end
+
+  def append(string : String) : self
+    const str_size = `strlen(string)
+    const old_size = size
+    size += str_size
+
+    unless (capacity >= size)
+      capacity = size
+      unsafe { `realloc(pointer!!, capacity) }
+    end
+
+    unsafe { @memcopy(
+      source: string,
+      destination: pointer!! + old_size,
+      size: str_size) }
+
+    return self
+  end
+
+  def append(bytes : Slice(Byte, S)) forall S
+    const old_size = size
+    size += S
+
+    unless (capacity >= size)
+      capacity = size
+      unsafe { `realloc(pointer!!, capacity) }
+    end
+
+    unsafe { @memcopy(
+      source: &bytes,
+      destination: pointer!! + old_size,
+      size: S) }
+
+    return self
+  end
+end
