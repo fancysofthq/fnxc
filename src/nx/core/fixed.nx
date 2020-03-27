@@ -1,9 +1,9 @@
 # A fixed-point number.
 struct Fixed(
-  Base E : SizeLiteral,
-  Bitsize B : SizeLiteral,
-  Fraction F : SizeLiteral,
-  Signed S : BoolLiteral,
+  Base E : %num,
+  Bitsize B : %num,
+  Fraction F : %num,
+  Signed S : %bool,
 ) { }
 
 # A binary fixed-point number, which may be either signed or unsigned.
@@ -81,8 +81,8 @@ alias UBin64(Fraction F) = UBin(64, F)
 %}
 
 alias Decimal(
-  Precision P : SizeLiteral,
-  Scale F : SizeLiteral = 0
+  Precision P : %num,
+  Scale F : %num = 0
 ) = Fixed(10, \{{ containing_bitsize(site(), P) }}, F, true)
 
 alias Dec = Decimal

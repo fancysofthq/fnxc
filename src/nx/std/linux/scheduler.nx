@@ -1,0 +1,245 @@
+# -t x86_64-pc-linux@>=4.5-elf -lc
+{% if not __build.target.sys_ver >= "2.6" then %}
+  {% panic("Standard `Scheduler` requires Linux kernel >= 2.6") %}
+{% end %}
+
+{% if __build.libc == "gnu" then %}
+  {% if not __build.libc_ver >= "2.28" then %}
+    {% panic("Standard `Scheduler` on Linux requires GCC >= 2.28") %}
+  {% end %}
+{% else %}
+  {% panic("Standard `Scheduler` on Linux requires one of the following " ..
+    "libc implementations: `gnu@>=2.28`") %}
+{% end %}
+
+# The C11 threads implementation.
+import "threads"
+
+# Futexes allow to implement lightweight locks on Linux.
+import "linux/futex"
+
+require "./scheduler/mutex"
+require "./scheduler/queue"
+
+# A CPU jobs scheduler.
+class Scheduler
+  derive Singleton
+
+  class Thread
+    # An Onyx-land incremental thread ID.
+    final id : Size
+
+    # #:nodoc A C thread handler.
+    final handler = uninitialized $thrd_t
+
+    # #:nodoc A mutex used for locks.
+    final mutex = Mutex()
+
+    # #:nodoc A thread's `Queue` instance.
+    final queue = Queue()
+
+    impl initialize(this.id)
+    end
+  end
+
+  # Can't set `thread_count` to a value greater than this.
+  # #:nodoc 128 seems to be enough for modern CPUs.
+  static const HARD_THREAD_LIMIT = {{
+    __ENV["ONYXC_HARD_THREAD_LIMIT"] or 128
+  }}
+
+  # A current thread struct.
+  #
+  # #:nodoc It is a static, thread-local struct, which aligns
+  # nicely with the fact that `Scheduler` is a singelton.
+  @[Threadlocal]
+  static const thread : Thread = Thread(0)
+
+  # If this was set to `false`, there would
+  # be no `.parallelize` implementation.
+  static const PARALLELIZATION_SUPPORTED = true
+
+  # Is the scheduler currently running is parralel mode?
+  # If it is, it can't be `#parallelize`d again.
+  get parallelized? : Bool
+
+  # The amount of Onyx threads to be spawned.
+  #
+  # The implementation assumes that the actual amount of threads is always
+  # a double, because of the possibility of a blocking C call. For example,
+  # `thread_count` of 4 Onyx threads allows up to 8 real kernel threads,
+  # 4 of which can be blocked by a C call, and other 4 execute an Onyx code.
+  const thread_count : UInt8
+
+  # The real possible amount of threads is `HARD_THREAD_LIMIT * 2`.
+  private const thread_array = Thread*[
+    {{ __lookup["HARD_THREAD_LIMIT"].value * 2 }}
+  ]()
+
+  # The fiber pool.
+  private const fiber_pool = Fiber::Pool()
+
+  # Parallelize the `Scheduler` instance, queueing *proc* as its first job.
+  # You can only run this function once per program execution. Without this
+  # function call, all `.async`, `.await`, `.sleep` and `.select` calls are
+  # concurrent instead of parallel.
+  #
+  # NOTE: Parallelization is a platform-dependent feature
+  # (see `PARALLELIZATION_SUPPORTED`).
+  #
+  # *thread_count* is limited to `2..HARD_THREAD_LIMIT`.
+  #
+  # The `@parallelize` intrinsic is a standard shortcut for this action.
+  #
+  # ```
+  # require "std/scheduler"
+  #
+  # def main
+  #   @parallelize(threads: 8) ~> do
+  #     @pp("Hello, multi-threading!")
+  #   end
+  # end
+  # ```
+  static def parallelize(threads: thread_count : UInt8, proc : ~> Discard)
+    instance.parallelize(thread_count, proc)
+  end
+
+  # `Scheduler` does not have a public initializer.
+  private impl initialize
+  end
+
+  def parallelize(thread_count : Size)
+    if parallelized?
+      throw "`Scheduler` can be parallelized at most once"
+    else
+      parallelized? = true
+    end
+
+    until thread_count === 2..HARD_THREAD_LIMIT
+      throw ArgumentError("*thread_count* must be \
+        in range 2..Scheduler::HARD_THREAD_LIMIT")
+    end
+
+    this.thread_count = thread_count
+
+    this.thread_count.times() -> (index) do
+      mut t = Thread(id: index)
+
+      # We need to dynamically allocate the payload,
+      # as its lifetime is undefined
+      const &payload = unsafe
+        $malloc(@sizeof(<Size, List*>)).as!!(<Size, List*>*)
+      end
+
+      payload[0] = index
+      payload[1] = unsafe { &thread_array }
+
+      # The call would set t's `handler`
+      unsafe { $thrd_create(
+        t.&handler,
+        $onyxc_thread_start,
+        &payload) }
+    end
+  end
+
+  # The entry function for a thread.
+  export void onyxc_thread_start(void *arg) {
+    # Unpack the payload (see `#parallelize`)
+    final payload = unsafe
+      arg.as!!(<Size, @typeof(thread_array)*>*)
+    end |> @valueof
+
+    unsafe { $free(arg) } # We don't need it anymore
+
+    # Point to the TLS `thread` constant
+    final this : Thread* = unsafe { Scheduler.&thread }
+
+    # Set the thread ID
+    *this.id = payload[0]
+
+    # Add the thread to the threads array
+    payload[1]->[payload[0]] = this
+
+    @loop -> do
+      if proc = queue.shift?
+        @[NoThrow] proc()
+      elsif thread_array.size > 1
+        mut stole? = false
+
+        thread_array.each -> (other) do
+          # Skip the same thread
+          if (this == other) { continue }
+
+          # Steal a half of the jobs from another thread
+          if steal(this, other)
+            stole? = true
+            break
+          end
+        end
+
+        if !stole?
+          wait_for_job()
+        end
+      end
+    end
+  }
+
+  private def steal(to : Thread*, from : Thread*) : Size
+    from->mutex.lock()
+    final fq = from->queue
+
+    if fq.size > 0
+      to->mutex.lock()
+
+      final tq = to->queue
+      final count = fq.size // 2
+
+      # Makes sure there is enough space in the *to*-queue
+      tq.resize(count)
+
+      unsafe { $memcpy(
+        dest: fq->(private)pointer,
+        src: fq->(private)pointer[fq->(private)offset],
+        count: count * @sizeof(Job)) }
+
+      fq.(private)offset += count
+      tq.(private)size = count
+
+      to->mutex.unlock()
+      from->mutex.unlock()
+
+      return count
+    else
+      from->mutex.unlock()
+      return 0
+    end
+  end
+
+  private def wait_for_jobs
+  end
+
+  def run
+    thread_array.each(ptr) ~> $thrd_join(ptr->&handler)
+  end
+
+  static def wait(mutex : Mutex, until time : Time~)
+  end
+
+  static def unlock(mutex : Mutex)
+  end
+
+  static def wait(covar : Covar, mutex : Mutex, until time : Time~)
+  end
+
+  static def signal(covar : Covar)
+  end
+
+  static def broadcast(covar : Covar)
+  end
+
+  static def wait_readable(fd : File::Descriptor, until time : Time~)
+  end
+
+  static def wait_writeable(fd : File::Descriptor, until time : Time~)
+  end
+end

@@ -1,4 +1,5 @@
-struct Queue
+# A job queue implementation specific for Scheduler.
+struct Std::Scheduler::Queue
   private mut jobs : Proc<(Void)>*
   getter size : UInt16
   getter offset : UInt16

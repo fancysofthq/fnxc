@@ -1,3 +1,0 @@
-struct Scheduler::Fiber
-  const id : Size
-end

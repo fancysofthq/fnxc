@@ -8,7 +8,7 @@
 #include <vector>
 
 namespace Onyx {
-namespace Compile {
+namespace Compiler {
 namespace Token {
 struct Base {
   const Location location;
@@ -145,7 +145,7 @@ struct Value : Base {
     CommentIntrinsic, // :foo:
     Symbol,           // :foo
     StringSymbol,     // :"foo" (ASCII only)
-    Text,             // An arbitrary text used in comments and macros
+    Text, // An arbitrary text used in comments and macros
   };
 
   const Kind kind;
@@ -171,7 +171,7 @@ struct Codepoint : Base {
 
   enum Kind {
     Exact,       // a
-    Binary,      // \i1100001
+    Binary,      // \b1100001
     Octal,       // \o141
     Decimal,     // \97, \d97
     Hexadecimal, // \x61
@@ -210,7 +210,7 @@ struct StringLiteral : Base {
 struct NumericLiteral : Base {
   enum Radix {
     Deci, // 42
-    Bina, // 0i101010
+    Bina, // 0b101010
     Octa, // 0o052
     Hexa, // 0x2A
   };
@@ -303,7 +303,8 @@ struct PercentLiteral : Base {
   // _reverse_radices_map;
 
   // static const unordered_map<NumericType, char> _types_map;
-  // static const unordered_map<NumericType, char> _reverse_types_map;
+  // static const unordered_map<NumericType, char>
+  // _reverse_types_map;
 
   PercentLiteral(
       Location loc,
@@ -320,5 +321,5 @@ struct PercentLiteral : Base {
       numeric_bitsize(numeric_bitsize) {}
 };
 } // namespace Token
-} // namespace Compile
+} // namespace Compiler
 } // namespace Onyx

@@ -2,7 +2,7 @@
 #include "./location.hpp"
 
 namespace Onyx {
-namespace Compile {
+namespace Compiler {
 // A compiler panic occured due to a source program error.
 struct Panic : std::logic_error {
   stack<Location> backtrace;
@@ -11,5 +11,5 @@ struct Panic : std::logic_error {
     backtrace.push(loc);
   }
 };
-} // namespace Compile
+} // namespace Compiler
 } // namespace Onyx

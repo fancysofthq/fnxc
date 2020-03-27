@@ -1,4 +1,4 @@
-ref Scheduler::Mutex
+struct Std::Scheduler::Mutex
   const AlreadyLocked = "Already locked on mutex"
   const NotLockedYet = "Not yet locked on mutex"
 

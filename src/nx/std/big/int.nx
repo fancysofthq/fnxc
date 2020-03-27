@@ -4,10 +4,10 @@ class Big::Int
   derive Numeric
   derive Numeric::Integral
 
-  protected const ref!! = uninitialized $mpz_t
+  protected const ptr = alloca $mpz_t
 
   def initialize
-    unsafe { $mpz_init(ref!!) }
+    unsafe { $mpz_init(ptr) }
   end
 
   # Initialize with a `String`.
@@ -18,47 +18,47 @@ class Big::Int
   #   3141592653589793238462643383279502884I
   # ```
   def initialize(string : String)
-    unsafe { $mpz_init_set_str(ref!!, string, 10) }
+    unsafe { $mpz_init_set_str(ptr, string, 10) }
   end
 
   # Initialize with at least 32-bit `UInt`.
   #
   #
   def initialize(uint : $`unsigned long int`)
-    unsafe { $mpz_init_set_ui(ref!!, uint) }
+    unsafe { $mpz_init_set_ui(ptr, uint) }
   end
 
   # Initialize with at least 32-bit `UInt`.
   def initialize(sint : $`signed long int`)
-    unsafe { $mpz_init_set_si(ref!!, sint) }
+    unsafe { $mpz_init_set_si(ptr, sint) }
   end
 
   # Initialize with at least 64-bit `Float`.
   def initialize(double : $double)
-    unsafe { $mpz_init_set_d(ref!!, double) }
+    unsafe { $mpz_init_set_d(ptr, double) }
   end
 
   def finalize
-    unsafe { $mpz_clear(ref!!) }
+    unsafe { $mpz_clear(ptr) }
   end
 
   def add(another : self) : self
-    unsafe { $mpz_add(ref!!, ref!!, another.ref!!) }
+    unsafe { $mpz_add(ptr, ptr, another.ptr) }
     return self
   end
 
   def add(num : $`unsigned long int`) : self
-    unsafe { $mpz_add_ui(ref!!, ref!!, num) }
+    unsafe { $mpz_add_ui(ptr, ptr, num) }
     return self
   end
 
   def sub(another : self) : self
-    unsafe { $mpz_sub(ref!!, ref!!, another.ref!!) }
+    unsafe { $mpz_sub(ptr, ptr, another.ptr) }
     return self
   end
 
   def sub(num : $`unsigned long int`) : self
-    unsafe { $mpz_sub(ref!!, ref!!,num) }
+    unsafe { $mpz_sub(ptr, ptr,num) }
     return self
   end
 end

@@ -1,17 +1,17 @@
-struct Scheduler::Monitor
-  private const waiting : Set<Size>
+struct Std::Scheduler::Covar
+  private const waiting = Set<Size>()
 
   # Atomically unlock the *mutex* and start waiting for a signal.
   # Once the signal receival, locks the mutex again.
-  fun wait(mutex : Mutex*, timeout : Timespan~ = void)
+  def wait(mutex : Mutex*, timeout : Timespan~ = void)
     Scheduler.wait(&self, mutex, timeout)
   end
 
-  fun signal
+  def signal
     Scheduler.signal(&self)
   end
 
-  fun broadcast
+  def broadcast
     Scheduler.broadcast(&self)
   end
 end

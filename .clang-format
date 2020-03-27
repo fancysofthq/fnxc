@@ -7,5 +7,5 @@ AllowAllParametersOfDeclarationOnNextLine: true
 BreakConstructorInitializers: AfterColon
 AlignAfterOpenBracket: AlwaysBreak
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
-ColumnLimit: 70
+ColumnLimit: 69
 SortIncludes: true

@@ -1,8 +1,7 @@
-# An app with an embedded NVVM
-# assembly is built as:
+# An app with an embedded NVVM assembly is built as:
 #
 # ```console
-# $ env NVVM_TARGET=nvtpx64 \
+# $ env ONYXC_NVVM_TARGET=nvtpx64 \
 #   onyxc build host/embed.nx
 # ```
 #

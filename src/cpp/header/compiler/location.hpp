@@ -2,7 +2,7 @@
 #include "./unit.hpp"
 
 namespace Onyx {
-namespace Compile {
+namespace Compiler {
 struct Position {
   unsigned long row;
   unsigned long col;
@@ -37,5 +37,5 @@ struct Location {
   Location(shared_ptr<Unit> unit) :
       unit(unit), begin(Position(0, 0)), end(begin) {}
 };
-} // namespace Compile
+} // namespace Compiler
 } // namespace Onyx

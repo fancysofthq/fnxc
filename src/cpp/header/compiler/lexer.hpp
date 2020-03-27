@@ -7,10 +7,10 @@
 using namespace std;
 
 namespace Onyx {
-namespace Compile {
-// Lexer takes an compilation unit and lexes it into series of tokens,
-// which are then fed to the Parser. The lexer is also responsible
-// for evaluating immediate macros.
+namespace Compiler {
+// Lexer takes an compilation unit and lexes it into series of
+// tokens, which are then fed to the Parser. The lexer is also
+// responsible for evaluating immediate macros.
 class Lexer {
   // The compilation unit.
   shared_ptr<Unit> _unit;
@@ -58,7 +58,7 @@ public:
       NumericInvalidBitsize,
 
       CodepointUnknownEscapeSequence, // E.g. `'\h'`: what's that?
-      CodepointOutOfRange,      // Must be in range 0-‭4294967295‬
+      CodepointOutOfRange, // Must be in range 0-‭4294967295‬
       CodepointOutOfRangeASCII, // Must be in range 0-255
       CodepointMalformed,       // A UTF-8 error
 
@@ -201,5 +201,5 @@ private:
   // of allowed ASCII operators, e.g. `+` or `&`.
   bool _is_ascii_op();
 };
-}; // namespace Compile
+}; // namespace Compiler
 } // namespace Onyx

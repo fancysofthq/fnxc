@@ -7,8 +7,8 @@ namespace App {
 // It formats an input file atomically.
 //
 // ```
-// onyx format main.nx -o main.formatted.nx
-// onyx format main.nx --rewrite
+// onyxc format main.nx -o main.formatted.nx
+// onyxc format main.nx --rewrite
 // ```
 class FMT : Shared::BC {
 public:

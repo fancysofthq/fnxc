@@ -3,6 +3,11 @@ namespace Core
   # built for given *Arch*. Functions built for the same
   # architecture are grouped together in a single module.
   @[ApplicableTo<"export:function">]
-  annotation Embed<Arch : %string>
+  annotation Embed<
+    Arch : %string,
+    SubArch : %string,
+    Vendor : %string,
+    System : %string,
+    ABI : %string>
   end
 end

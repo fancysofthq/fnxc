@@ -1,4 +1,4 @@
-#include "../../header/compile/lexer.hpp"
+#include "../../header/compiler/lexer.hpp"
 #include "../../header/utils/log.hpp"
 #include "../../header/utils/utf8.hpp"
 #include <fstream>
@@ -8,20 +8,20 @@
 #include <stdint.h>
 
 namespace Onyx {
-namespace Compile {
+namespace Compiler {
 Lexer::Lexer(std::shared_ptr<Unit> unit) :
     _unit(unit), _location(Location(unit)) {
-  ldebug() << "[Lexer] Opening file " << unit->path;
+  ldebug() << "[Lexer()] Opening file " << unit->path;
 
   if (!filesystem::exists(unit->path)) {
-    ltrace() << "[Lexer] File does not exist, panicking";
+    ltrace() << "[Lexer()] File does not exist, panicking";
     throw Error(_cursor, Error::FileError);
   }
 
   // The file is opened in text mode to make
   // newline-dependent code cross-platform.
   _input = make_unique<ifstream>(ifstream(unit->path));
-  ldebug() << "[Lexer] Opened the file";
+  ldebug() << "[Lexer()] Opened the file";
 
   _read(false);
 }
@@ -30,17 +30,18 @@ char Lexer::_read(bool raise_on_eof) {
   char prev_codeunit = _codeunit;
 
   if (_is_reading_from_macro) {
-    ltrace() << "[Lexer] Accessing macro output";
+    ltrace() << "[Lexer::_read] Accessing macro output";
     auto stream = &_macro->output;
 
     if (stream->eof()) {
-      ltrace() << "[Lexer] Stop reading from macro (EOF)";
+      ltrace() << "[Lexer::_read] Stop reading from macro (EOF)";
       _is_reading_from_macro = false;
     } else {
-      ltrace() << "[Lexer] Reading from macro";
+      ltrace() << "[Lexer::_read] Reading from macro";
       _codeunit = stream->get();
-      ltrace() << "[Lexer] Read `" << _codeunit << "` (0x" << std::hex
-               << +_codeunit << ") from macro output" << std::dec;
+      ltrace() << "[Lexer::_read] Read `" << _codeunit << "` (0x"
+               << std::hex << +_codeunit << std::dec
+               << ") from macro output";
       return prev_codeunit;
     }
   }
@@ -49,10 +50,10 @@ char Lexer::_read(bool raise_on_eof) {
   // if already read from the macro input.
   //
 
-  ltrace() << "[Lexer] Reading from source";
+  ltrace() << "[Lexer::_read] Reading from source";
   _codeunit = _input->get();
-  ltrace() << "[Lexer] Read `" << _codeunit << "` (0x" << std::hex
-           << +_codeunit << ")" << std::dec;
+  ltrace() << "[Lexer::_read] Read `" << _codeunit << "` (0x"
+           << std::hex << +_codeunit << ")" << std::dec;
 
   if (_is(EOF) && raise_on_eof)
     _err();
@@ -63,7 +64,8 @@ char Lexer::_read(bool raise_on_eof) {
   // than a single byte (e.g. `\r\n` on Windows).
   // https://en.wikipedia.org/wiki/Newline#In_programming_languages
   if (_is('\n')) {
-    ltrace() << "[Lexer] Read newline, incrementing cursor row";
+    ltrace() << "[Lexer::_read] Read newline, "
+                "incrementing cursor row";
     _cursor.col = 0;
     _cursor.row += 1;
   } else
@@ -93,8 +95,8 @@ Lexer::_value(Token::Value::Kind kind, string value) {
 }
 
 Location Lexer::_reloc() {
-  ltrace() << "[Lexer] Resetting the location to " << _prev_cursor.row
-           << ":" << _prev_cursor.col;
+  ltrace() << "[Lexer::_reloc] Resetting the location to "
+           << _prev_cursor.row << ":" << _prev_cursor.col;
 
   auto copy = _location;
   copy.end.row = _prev_cursor.row;
@@ -553,7 +555,8 @@ generator<shared_ptr<Token::Base>> Lexer::_lex_numeric_literal() {
             Location(_unit, begin, end), radix, whole);
 
         co_yield make_shared<Token::Control>(
-            Location(_unit, dot_begin, dot_end), Token::Control::Dot);
+            Location(_unit, dot_begin, dot_end),
+            Token::Control::Dot);
 
         _reloc();
         co_return; // Halt the numerical lexing
@@ -619,7 +622,8 @@ generator<shared_ptr<Token::Base>> Lexer::_lex_numeric_literal() {
             Location(_unit, begin, end), radix, whole);
 
         co_yield make_shared<Token::Control>(
-            Location(_unit, dot_begin, dot_end), Token::Control::Dot);
+            Location(_unit, dot_begin, dot_end),
+            Token::Control::Dot);
 
         _reloc();
         co_return; // Halt the numerical lexing
@@ -777,7 +781,7 @@ generator<shared_ptr<Token::Base>> Lexer::lex() {
       _read();
 
       if (_is('%')) {
-        ltrace() << "[Lexer] Encountered a non-emitting macro";
+        ltrace() << "[Lexer::lex] Encountered a non-emitting macro";
         _read();
 
         if (_ensure_macro()->is_incomplete()) {
@@ -794,7 +798,7 @@ generator<shared_ptr<Token::Base>> Lexer::lex() {
           // ```
           //
 
-          ltrace() << "[Lexer] New macro within an "
+          ltrace() << "[Lexer::lex] New macro within an "
                    << "incomplete statement; "
                    << "evaluating what's buffered...";
 
@@ -804,12 +808,12 @@ generator<shared_ptr<Token::Base>> Lexer::lex() {
           if (_macro->error.has_value())
             _err_macro(_macro->error.value());
 
-          ltrace() << "[Lexer] Successfully evaluated "
+          ltrace() << "[Lexer::lex] Successfully evaluated "
                    << "the macro buffer. Would not "
                    << "output from macro yet";
         }
 
-        ltrace() << "[Lexer] Reading the macro code...";
+        ltrace() << "[Lexer::lex] Reading the macro code...";
 
         // Within a macro, `%}` would mean macro termination.
         // Escaping with a backslash would prevent that: `\%}`.
@@ -841,7 +845,7 @@ generator<shared_ptr<Token::Base>> Lexer::lex() {
         }
 
         // Evaluate the accumulated macro code
-        ltrace() << "[Lexer] Evaluating the macro...";
+        ltrace() << "[Lexer::lex] Evaluating the macro...";
         _macro->eval();
 
         if (_macro->error.has_value()) {
@@ -851,7 +855,7 @@ generator<shared_ptr<Token::Base>> Lexer::lex() {
           // as implicitly emitted by a macro.
           // This is true until a macro expression
           // is terminated (i.e. completed).
-          ltrace() << "[Lexer] The macro is incomplete";
+          ltrace() << "[Lexer::lex] The macro is incomplete";
           _macro->begin_implicit_emit();
           _read(); // Would raise on EOF if incomplete macro
         } else {
@@ -859,7 +863,7 @@ generator<shared_ptr<Token::Base>> Lexer::lex() {
           // any errors; it's time to read its output
           //
 
-          ltrace() << "[Lexer] The macro has been successfully "
+          ltrace() << "[Lexer::lex] The macro has been successfully "
                    << "evaluated. Start reading from its output";
 
           _is_reading_from_macro = true;
@@ -869,9 +873,9 @@ generator<shared_ptr<Token::Base>> Lexer::lex() {
         _read();
 
         // That's an emitting macro, e.g. `{{ "foo" }}`.
-        ltrace() << "[Lexer] Encountered an emitting macro";
+        ltrace() << "[Lexer::lex] Encountered an emitting macro";
         _ensure_macro()->begin_explicit_emit();
-        ltrace() << "[Lexer] Reading the macro code...";
+        ltrace() << "[Lexer::lex] Reading the macro code...";
 
         // Within a macro, `}}` would mean macro termination.
         // Escaping with a backslash would prevent that: `\}}`.
@@ -905,7 +909,7 @@ generator<shared_ptr<Token::Base>> Lexer::lex() {
         //
 
         if (_macro->is_incomplete()) {
-          ltrace() << "[Lexer] Explicit emitting macro "
+          ltrace() << "[Lexer::lex] Explicit emitting macro "
                    << "is within an incomplete macro expression; "
                    << "would not evaluate";
           _macro->end_explicit_emit();
@@ -917,7 +921,8 @@ generator<shared_ptr<Token::Base>> Lexer::lex() {
         // It must be complete, as it's wrapped into an `emit` call.
         //
 
-        ltrace() << "[Lexer] Evaluating explicit emitting macro... ";
+        ltrace()
+            << "[Lexer::lex] Evaluating explicit emitting macro... ";
         _macro->eval();
 
         if (_macro->is_incomplete())
@@ -930,7 +935,7 @@ generator<shared_ptr<Token::Base>> Lexer::lex() {
           // without errors; it's time to read its output
           //
 
-          ltrace() << "[Lexer] The macro has been successfully "
+          ltrace() << "[Lexer::lex] The macro has been successfully "
                    << "evaluated. Start reading from its output";
 
           _is_reading_from_macro = true;
@@ -939,7 +944,7 @@ generator<shared_ptr<Token::Base>> Lexer::lex() {
       } else if (_macro && _macro->is_incomplete()) {
         // Within an incomplete macro expression block,
         // everything is wrapped into a macro `emit` call.
-        ltrace() << "[Lexer] Putting the code unit "
+        ltrace() << "[Lexer::lex] Putting the code unit "
                  << "into the macro buffer";
         // _macro->ensure_implicit_emit();
         _macro->input << '{';
@@ -964,7 +969,7 @@ generator<shared_ptr<Token::Base>> Lexer::lex() {
           bool backslash = false;
           string buff;
 
-          ltrace() << "[Lexer] Reading delayed macro input";
+          ltrace() << "[Lexer::lex] Reading delayed macro input";
           while (true) {
             if (_is('\\'))
               backslash = true;
@@ -1071,8 +1076,8 @@ generator<shared_ptr<Token::Base>> Lexer::lex() {
 
                 _location.end = int_begin;
 
-                auto text_tok =
-                    Token::Value(_location, Token::Value::Text, buff);
+                auto text_tok = Token::Value(
+                    _location, Token::Value::Text, buff);
 
                 co_yield make_shared<Token::Value>(text_tok);
                 buff = "";
@@ -1168,13 +1173,16 @@ generator<shared_ptr<Token::Base>> Lexer::lex() {
 
           switch (_codeunit) {
           case 'o':
-            numeric_radix = Token::PercentLiteral::NumericRadix::Octa;
+            numeric_radix =
+                Token::PercentLiteral::NumericRadix::Octa;
             break;
           case 'd':
-            numeric_radix = Token::PercentLiteral::NumericRadix::Deci;
+            numeric_radix =
+                Token::PercentLiteral::NumericRadix::Deci;
             break;
           case 'x':
-            numeric_radix = Token::PercentLiteral::NumericRadix::Hexa;
+            numeric_radix =
+                Token::PercentLiteral::NumericRadix::Hexa;
             break;
           default:
             throw "BUG";
@@ -1541,7 +1549,9 @@ bool Lexer::_is_uppercase() {
   return _codeunit >= 0x41 && _codeunit <= 0x5A;
 }
 
-bool Lexer::_is_alpha() { return _is_lowercase() || _is_uppercase(); }
+bool Lexer::_is_alpha() {
+  return _is_lowercase() || _is_uppercase();
+}
 bool Lexer::_is_alphanum() { return _is_alpha() || _is_num(); }
 
 bool Lexer::_is_ascii_op() {
@@ -1563,5 +1573,5 @@ bool Lexer::_is_ascii_op() {
     return false;
   }
 }
-}; // namespace Compile
+}; // namespace Compiler
 } // namespace Onyx

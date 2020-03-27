@@ -1,0 +1,59 @@
+abstract struct Coro<Yield: ..Y, Yieldback: B, Return: R, Context: C>
+  enum Error
+    val NotDoneYet
+    val AlreadyDone
+  end
+
+  # An example context for `list.map<SInt64 -> FDec64>` would be:
+  #
+  # ```
+  # struct C
+  #   let done? : Bool = false
+  #   let stage : UInt8 = 0 # Actual size depends on the generator
+  #   let promise : Union<B, R> = unsafe uninitialized
+  #   let local : Local
+  #
+  #   struct Local
+  #     final list : List<FDec64>
+  #     final each_coro : Coro<SInt64, Void, Void, AnotherContext>
+  #   end
+  # end
+  # ```
+  private final context : C
+
+  private final function : Function<C*, Union<Y, C>>
+
+  def done? : Bool
+    return context.done?
+  end
+
+  def result : R
+    throw Error::NotDoneYet unless done?
+    return context.promise.(unsafe)as(R)
+  end
+
+  unsafe def result! : R
+    return context.promise.as(R)
+  end
+
+  def resume(Y -> B) : Void
+    throw Error::AlreadyDone if done?
+
+    final y = function.call(&C)
+    final b = yield y.(unsafe)as(Y)
+
+    \{% if not B:is_discard() or B:is_void() then %}
+      # If `B` is a class, it then replaces
+      # the old instance, thus impossible to return
+      context.promise = b
+    \{% end %}
+
+    # Move onto the next yield point
+    function.call(&C)
+
+    if done?
+      # Final call to set the result
+      context.promise = function.call(&C)
+    end
+  end
+end

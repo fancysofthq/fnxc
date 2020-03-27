@@ -10,17 +10,18 @@ namespace fs = experimental::filesystem;
 #include "./utils/log.hpp"
 
 struct StandardError : std::exception {
-  StandardError(const string message) : std::exception(message.c_str()) {}
+  StandardError(const string message) :
+      std::exception(message.c_str()) {}
 };
 
 // Commands:
 //
-//   * onyx               — run the REPL
-//   * onyx [file]        — run [file] in JIT mode
-//   * onyx run [file]    — ditto
-//   * onyx build [file]  — build [file] in AOT mode
-//   * onyx api [file]    — generate API for [file]
-//   * onyx format [file] — format an Onyx source file
+//   * onyxc               — run the REPL
+//   * onyxc [file]        — run [file] in JIT mode
+//   * onyxc run [file]    — ditto
+//   * onyxc build [file]  — build [file] in AOT mode
+//   * onyxc api [file]    — generate API for [file]
+//   * onyxc format [file] — format an Onyx source file
 //
 int main(int argc, char *argv[]) {
   locale::global(locale("en_US.UTF-8"));
@@ -35,7 +36,7 @@ int main(int argc, char *argv[]) {
     // The `build` command builds an Onyx program in AOT mode.
     //
     // ```sh
-    // > onyx build main.nx -o ./bin/main
+    // > onyxc build main.nx -o ./bin/main
     // ```
     if (arg == "build") {
       if (argc < 3)
@@ -65,10 +66,12 @@ int main(int argc, char *argv[]) {
       }
 
       if (is_jobs)
-        throw StandardError("Expected explicit number of jobs after -j");
+        throw StandardError("Expected explicit "
+                            "number of jobs after -j");
 
       trace("Compiling program " + filename + "...");
-      Onyx::Compiler::compile(fs::path(filename), (unsigned char)jobs);
+      Onyx::Compiler::compile(
+          fs::path(filename), (unsigned char)jobs);
       trace("Compiled program");
     } else
       throw StandardError("Unknown command " + arg);
@@ -77,8 +80,9 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   } catch (Onyx::Compiler::Panic &p) {
     if (!p.location.path.empty()) {
-      cerr << "Panic at " << p.location.path << ":" << p.location.begin_row
-           << ":" << p.location.begin_column << ": " << p.message << "\n";
+      cerr << "Panic at " << p.location.path << ":"
+           << p.location.begin_row << ":" << p.location.begin_column
+           << ": " << p.message << "\n";
     } else {
       cerr << "Panic: " << p.message << "\n";
     }

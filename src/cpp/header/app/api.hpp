@@ -2,24 +2,44 @@
 
 namespace Onyx {
 namespace App {
-// The API builder application.
+// The canonical API builder application. It outputs a compiled API
+// specification in given `-[-F]ormat`:
 //
-// It outputs a compiled API specification in given format.
-// In `--lib` mode it generates a C header file instead,
-// mentioning exported entities only.
+// Format          | Flag        | Extension  | Notes
+// ---             | ---         | ---        | ---
+// Onyx Binary API | `-Fbin`     | `.binapi`  | The default one
+// MessagePack     | `-Fmsgpack` | `.msgpack`
+// JSON            | `-Fjson`    | `.json`
+// YAML            | `-Fyaml`    | `.yaml`
+// XML             | `-Fxml`     | `.xml`
+// C header file   | `-Fheader`  | `.h`       | Only for `-[-e]xtern`
 //
-// ```
-// onyx api main.nx && touch main.mp
-// onyx api main.nx --format=json && touch main.json
-// onyx api main.nx --lib && touch main.h
+// Passing the `-[-e]xtern` flag outputs `extern` entities API only
+// as a C header file by default. It is still possible to define
+// other formats in this case, though.
+//
+// Examples:
+//
+// ```console
+// # Export application API in the default binary API format
+// onyxc api main.nx && [ -e main.binapi ]
+//
+// # Export application API in JSON
+// onyxc api main.nx -Fjson -o doc/api.json && [ -e doc/api.json ]
+//
+// # Export external entities API as a C header file
+// onyxc api main.nx -e && [ -e main.h ]
+//
+// # Export external entities API in MessagePack format
+// onyxc api main.nx -e --format=msgpack && [ -e main.msgpack ]
 // ```
 class API : Shared::BC {
 public:
-  enum Format { MP, JSON, YAML, XML };
+  enum Format { Binary, MessagePack, JSON, YAML, XML, Header };
 
   API(filesystem::path input,
       filesystem::path output,
-      bool lib,
+      bool is_extern,
       Format format,
       unsigned char workers);
 

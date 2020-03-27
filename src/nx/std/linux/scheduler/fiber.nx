@@ -1,0 +1,72 @@
+# A fiber is a user-space thread, a.k.a. green thread, goroutine.
+# Fibers can yield, saving needed registers on it stack and updating its
+# `stack_pointer`. Upon resuming, registers are restored, and the
+# sub-program continues its execution from the previosuly yielded point.
+class Scheduler::Fiber
+  # Points to the top of a sleeping fiber stack.
+  # NB: Stack grows downwards, not upwards.
+  protected get stack_pointer : Byte* = unsafe
+    &stack + {{ __ENV["FIBER_STACK_SIZE"] }}
+  end
+
+  # WARNING: `resumable?` must follow the
+  # `stack_pointer` field immediately!
+  @[Align<8>]
+  get resumable? = false
+
+  final id : Size
+
+  # XXX: Either that or dynamically growing.
+  protected final stack = Byte[{{ __ENV["FIBER_STACK_SIZE"] }}]()
+
+  impl initialize(this.id)
+  end
+
+  # Swap self with *another* fiber.
+  # Save the current context on the top of own `stack`.
+  # Then restore registers from *another* fiber.
+  @[NoInline]
+  unsafe def swap(&another : Fiber*)
+    # Generally, we need to save the program counter
+    # and the base pointer registers
+    {% if __target.arch == "x86_64" then %}
+      # Linux uses System V x86-64 psABI.
+      #
+      # Registers `%rbp`, `%rbx` and `%r12` through `%r15` “belong” to the
+      # calling function and the called function is required to preserve
+      # their values. In other words, a called function must preserve these
+      # registers’ values for its caller. Remaining registers “belong” to the
+      # called function.
+      #
+
+      asm
+      template x86_64
+        pushq %rdi # Push the first argument (because of initial resume)
+
+        # Push callee-saved registers on the stack
+        pushq %rbx
+        pushq %rbp
+        pushq %r12
+        pushq %r13
+        pushq %r14
+        pushq %r15
+
+        movq %rsp, $0     # this.stack_pointer = %rsp
+        movb $$1, 8($0)   # this.resumable = true
+        movb $$0, 8($1)   # another.resumable = false
+        movq 0($1), %rsp  # %rsp = another.&stack_pointer
+
+        # Pop callee-saved registers from the stack
+        popq %r15
+        popq %r14
+        popq %r13
+        popq %r12
+        popq %rbp
+        popq %rbx
+        popq %rdi # Pop the first argument (for initial resume)
+      in r(this.stack_pointer)
+      out =r(another.&stack_pointer)
+      end
+    {% end %}
+  end
+end

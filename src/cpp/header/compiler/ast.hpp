@@ -8,7 +8,7 @@
 using namespace std;
 
 namespace Onyx {
-namespace Compile {
+namespace Compiler {
 namespace AST {
 struct Node {
   virtual ~Node() {}
@@ -163,5 +163,5 @@ static wstring tabs(unsigned short tab) {
   return buffer;
 }
 }; // namespace AST
-} // namespace Compile
+} // namespace Compiler
 } // namespace Onyx

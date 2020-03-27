@@ -4,14 +4,24 @@
 # See https://docs.nvidia.com/cuda/libdevice-users-guide/index.html.
 #
 # ```
+# # kernel.nx
 # require "std/nvvm/math"
 # using refinement Std::NVVM::Math
+#
+# @[Core::NVVM::Kernel]
+# export void add(float *a, float *b, float* c) {
+#   *c = *a + *b # Would implicitly use libdevice's addition
+# }
+# ```
+#
+# ```console
+# $ onyxc build main.nx -L/user/cuda -ldevice
 # ```
 refinement Std::NVVM::Math
   import "cuda_computations.h" from "libdevice"
 
   reopen Math
-    redef abs(x : SInt32)
+    static redef abs(x : SInt32)
       return unsafe { $__nv_abs(x) }
     end
   end

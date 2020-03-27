@@ -2,11 +2,11 @@
 # for host and device architectures:
 #
 # ```console
-# # Build NVVM assembly
-# $ onyxc export kernel.nx \
-#   -t:arch nvptx64 \
-#   -o kernel.ptx \
-#   -H kernel.h
+# # Build the NVVM assembly
+# $ onyxc build device.nx -e -t[isa=nvptx64] -o device.ptx
+#
+# # Export the header
+# $ onyxc api device.nx -e -o device.h
 #
 # # Build the host program
 # $ onyxc build host/import.nx

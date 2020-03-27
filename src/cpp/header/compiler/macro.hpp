@@ -6,6 +6,7 @@
 using namespace std;
 
 namespace Onyx {
+namespace Compiler {
 // A macro interpreter instance per
 // compilation unit and entity specialization.
 //
@@ -112,4 +113,5 @@ private:
   void _init();
   void _end_onyx_code();
 };
+} // namespace Compiler
 } // namespace Onyx

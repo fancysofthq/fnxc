@@ -1,5 +1,5 @@
 namespace Onyx {
-namespace Compile {
+namespace Compiler {
 // Optimizes the AST before codegen.
 //
 // AST always generates monomorphic functions, flattened to final
@@ -7,5 +7,5 @@ namespace Compile {
 // such calls in union switches, turning functions from mono- to
 // poly-morphic; such optimization would happen before LLVM IR emit.
 class Optimizer {};
-} // namespace Compile
+} // namespace Compiler
 } // namespace Onyx

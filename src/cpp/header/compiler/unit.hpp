@@ -6,7 +6,7 @@
 using namespace std;
 
 namespace Onyx {
-namespace Compile {
+namespace Compiler {
 
 namespace AST {
 struct Root;
@@ -26,7 +26,8 @@ struct Unit {
   shared_ptr<AST::Root> sast;
 
   // // The container to store the unit's tokens.
-  // // This includes both tokens from source files and evaluated from
+  // // This includes both tokens from source files and evaluated
+  // from
   // // macros. Token preservation is needed to properly output them.
   // stack<shared_ptr<Token::Base>> tokens;
 
@@ -41,5 +42,5 @@ struct Unit {
 
   // filesystem::path relative_path(filesystem::path root);
 };
-} // namespace Compile
+} // namespace Compiler
 } // namespace Onyx

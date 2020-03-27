@@ -1,5 +1,13 @@
 require "./math"
 
+require
+  "./container",
+  "./container/filterable",
+  "./container/enumerable",
+  "./container/endful",
+  "./container/beginful",
+  "./container/mappable"
+
 {%
   require "math"
 

@@ -10,6 +10,10 @@ using namespace std;
 namespace fs = experimental::filesystem;
 
 namespace Onyx {
+namespace Compiler {
+
+// Parses the tokens into meaningful source-level
+// abstract syntax tree (SAST).
 class Parser {
   Lexer *_lexer;
 
@@ -65,7 +69,9 @@ private:
   bool is_eof();
   void skip_newlines();
 
-  // Expressions are terminated with either newlines, semicolon or EOF.
+  // Expressions are terminated with either newlines, semicolon or
+  // EOF.
   bool is_terminator();
 };
+} // namespace Compiler
 } // namespace Onyx
