@@ -44,7 +44,7 @@ TEST_CASE("straightforward generator") {
 
 int sync_switch = 0;
 
-sync<int> _sync() {
+co::sync<int> _sync() {
   co_return(42);
   sync_switch = 1;
 }

@@ -7,10 +7,11 @@
 // TODO: Only valid header for CLang-CL driver.
 #ifdef _WIN32
 #include "./windows-coroutines.hpp"
-#elif
-#include <experimental/coroutines>
+#elif __linux__
+#include <experimental/coroutine>
 #endif
 
+namespace co {
 template <class T> struct generator {
   struct promise_type {
     T current_value;
@@ -131,3 +132,4 @@ template <typename T> struct async : public coreturn<T> {
 
   awaitable_type operator co_await();
 };
+}

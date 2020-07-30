@@ -1,5 +1,7 @@
 #include "../../header/utils/coroutines.hpp"
 
+using namespace co;
+
 template <class T>
 std::experimental::suspend_always
 generator<T>::promise_type::initial_suspend() {
@@ -132,17 +134,17 @@ template <class T> T coreturn<T>::get() {
 }
 
 template <class T>
-sync<T> sync<T>::promise_type::get_return_object() {
-  return sync<T>{handle_type::from_promise(*this)};
+co::sync<T> co::sync<T>::promise_type::get_return_object() {
+  return co::sync<T>{handle_type::from_promise(*this)};
 }
 
 template <class T>
 std::experimental::suspend_never
-sync<T>::promise_type::initial_suspend() {
+co::sync<T>::promise_type::initial_suspend() {
   return std::experimental::suspend_never{};
 }
 
-template <class T> T sync<T>::get() { return coreturn<T>::get(); }
+template <class T> T co::sync<T>::get() { return coreturn<T>::get(); }
 
 template <class T>
 async<T> async<T>::promise_type::get_return_object() {
