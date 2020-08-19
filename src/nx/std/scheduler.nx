@@ -1,5 +1,0 @@
-{% if __target.kernel == "linux" %}
-  require "./linux/scheduler.nx"
-{% else %}
-  {% panic("This implementation does not support target platform") %}
-{% end %}

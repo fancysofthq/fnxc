@@ -1,0 +1,5 @@
+require "./encoding"
+
+# Multiple codeunits make up a single codepoint, i.e. `Char`.
+distinct alias Codeunit<Encoding: E> to UBin<E::<Unitsize>>
+end

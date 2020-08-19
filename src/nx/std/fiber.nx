@@ -1,5 +1,0 @@
-class Fiber
-  static def new(~>)
-
-  end
-end

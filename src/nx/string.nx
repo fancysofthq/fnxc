@@ -1,0 +1,23 @@
+require "./codeunit"
+
+distinct alias String<Encoding: E, *> to Array<Type: Codeunit<E>, *>
+  derive Container::Enumerable<Char<E::<Charset>>>
+    impl each(block) as each_char
+
+    end
+  end
+
+  derive Container::Indexable<Char<E::<Charset>>, Size>
+    impl get(index) as get_char;
+    impl set(index, value) as set_char;
+    impl replace(index, value) as replace_char;
+
+    impl ~(
+      self && Enumerable<Char<E::<Charset>>>
+    ):each(block) as each_char;
+  end
+
+  derive Container::Enumerable<Codeunit<E>>
+    impl each(block) as each_codeunit;
+  end
+end

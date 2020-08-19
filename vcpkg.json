@@ -1,0 +1,12 @@
+{
+  "name": "fnxc",
+  "description": "The Fancy Onyx Compiler",
+  "version-string": "0.0.0",
+  "homepage": "https://fnxc.fancysoft.xyz",
+  "dependencies": [
+    "sqlite3",
+    "sqlitecpp",
+    "lua",
+    "doctest"
+  ]
+}

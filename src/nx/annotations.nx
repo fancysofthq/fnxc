@@ -1,0 +1,8 @@
+# Disables finalization of a reference.
+unsafe annotation NoFinalize
+  \{%
+    if not nx.ctx.annotated:is_reference() then
+      nx.panic "`NoFinalize` is only applicable to references"
+    end
+  %}
+end

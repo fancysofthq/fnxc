@@ -1,0 +1,29 @@
+# A fixed-point number.
+primitive Fixed<
+  Base ~ (2 || 10),
+
+  # Signedness.
+  Signed ~ %b,
+
+  # Size of the integral part in `Base`.
+  Integral ~ %n = 0,
+
+  # Size of the fractional part in `Base`.
+  # May be negative for right-shift.
+  Fractional ~%n = 0
+>
+  derive Real;
+end
+
+alias XBin<*> = Fixed<2, *>
+alias SXBin<*> = XBin<true, *>
+alias UXBin<*> = XBin<false, *>
+
+{% for i, _ in ipairs{8, 16, 32, 64, 128} do %}
+  alias SXBin{{ i }}<*> = SXBin<{{ i }}, *>
+  alias UXBin{{ i }}<*> = UXBin<{{ i }}, *>
+{% end %}
+
+alias XDec<*> = Fixed<10, *>
+alias SXDec<*> = XDec<true, *>
+alias UXDec<*> = XDec<false, *>

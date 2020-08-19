@@ -26,17 +26,17 @@ class Macro {
   // # The expression is incomplete, thus raw Onyx code within it
   // # is treated as to-be-emitted by the macro interpreter.
   // {% for e, i in ... %}
-  //   @pp({{ e }})
+  //   puts({{ e }})
   // ^ Not emitting yet, thus `false`
   //
-  //   @pp({{ e }})
+  //   puts({{ e }})
   //   ^ Began Onyx code; set to `true`
   //
-  //   @pp({{ e }})
-  //         ^ Macro code; set back to `false`
+  //   puts({{ e }})
+  //        ^ Macro code; set back to `false`
   //
-  //   @pp({{ e }})
-  //              ^ Set to `true` again
+  //   puts({{ e }})
+  //               ^ Set to `true` again
   // ```
   bool _is_expression_emitted_onyx_code;
 
@@ -59,16 +59,16 @@ public:
   // {% for i = 0, 1, 3 %}
   //   # At this point, `for` is incomplete,
   //   # as it expects proper ending.
-  //   @pp {{ i }}
+  //   puts({{ i }})
   // {% end %}
   //
   // # The same as:
   // #
   //
   // {% for i = 0, 1, 3 %}
-  //   {% emit("@pp ") %}
+  //   {% emit("puts(") %}
   //   {% emit(i) %}
-  //   {% emit("\n") %}
+  //   {% emit(")\n") %}
   // {% end %}
   // ```
   bool is_incomplete();
@@ -85,7 +85,7 @@ public:
   ~Macro();
 
   // Evaluate the buffered macro code.
-  // It's Usually triggered on closing macro brackets.
+  // It's usually triggered on closing macro brackets.
   // It should be preceded by fulfilling the `input`.
   void eval();
 

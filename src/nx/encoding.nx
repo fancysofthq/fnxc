@@ -1,0 +1,27 @@
+require "./charset.nx"
+
+trait Encoding<Charset: CS, Unitsize: UZ>
+  # A literal functor to return a string in given encoding.
+  decl (string: \%s) : String<self>
+end
+
+namespace UCS2 <~ Encoding<UCS, 16>
+  impl (string: ~ \%s)
+    \{%
+      if nx.ctx.string.val == "foo"
+    %}
+  end
+end
+
+namespace UCS4 <~ Encoding<UCS, 32>;
+
+# This is the default encoding for string literals in Onyx.
+namespace UTF8 <~ Encoding<UCS, 8>;
+
+namespace UTF16<Endianess ~ (:little || :big)> <~ Encoding<UCS, 16>;
+alias UTF16LE to UTF16<:little>
+alias UTF16BE to UTF16<:big>
+
+namespace UTF32<Endianess ~ (:little || :big)> <~ Encoding<UCS, 32>;
+alias UTF32LE to UTF32<:little>
+alias UTF32BE to UTF32<:big>

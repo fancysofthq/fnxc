@@ -1,9 +1,10 @@
 #pragma once
+
 #include "./location.hpp"
 
 namespace Onyx {
 namespace Compiler {
-// A compiler panic occured due to a source program error.
+// A compiler panic occured due to a syntax or semantic error.
 struct Panic : std::logic_error {
   stack<Location> backtrace;
 

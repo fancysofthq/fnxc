@@ -1,0 +1,19 @@
+require "./spec"
+
+@describe("Array") -> do
+  let ary = [10, 20, 30] :
+    Array<Type: SBin32, Size: 3> :
+    SBin32[3]
+
+  let new = ary[0] = -10
+  @assert(new == ary[0])
+  @assert(new == -10)
+
+  let old = ary[1] <<= 40 # Replacing an element
+  @assert(old == 20)
+
+  new = ary[1] <=> ary[2]
+  @assert(new == 30)
+
+  @assert(ary == Array<SBin32>{ -10, 30, 40 }))
+end

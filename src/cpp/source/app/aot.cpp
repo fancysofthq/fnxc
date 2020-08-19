@@ -1,6 +1,7 @@
+#include <functional>
+
 #include "../../header/app/aot.hpp"
 #include "../../header/utils/log.hpp"
-#include <functional>
 
 namespace Onyx {
 namespace App {
@@ -9,9 +10,9 @@ AOT::AOT(
     filesystem::path input,
     filesystem::path output,
     bool lib,
-    unsigned char workers) :
-    _entry(make_shared<Compile::Unit>(
-        Compile::Unit(false, input, nullptr))),
+    unsigned short workers) :
+    _entry(make_shared<Compiler::Unit>(
+        Compiler::Unit(false, input, nullptr))),
     _output(output),
     _is_lib(lib),
     _workers(workers) {
@@ -40,10 +41,10 @@ void AOT::compile() {
     ltrace() << "Joined worker @" << worker.get_id();
   }
 
-  if (_panic) {
+  if (_panic.has_value()) {
     // Something went wrong during BC compilation
     ltrace() << "Throwing a BC panic";
-    throw _panic.get();
+    throw _panic.value();
   } else
     ltrace() << "The BC compiler did not panic";
 }

@@ -100,7 +100,7 @@ public:
   Lexer(shared_ptr<Unit>);
 
   // Lex the tokens.
-  generator<shared_ptr<Token::Base>> lex();
+  co::generator<shared_ptr<Token::Base>> lex();
 
 private:
   // Read the next code point from the input
@@ -132,20 +132,20 @@ private:
 
   // Lex a single char literal, e.g. `'a'` or `'\x61`,
   // including wrapping quotes.
-  generator<shared_ptr<Token::Base>> _lex_char_literal();
+  co::generator<shared_ptr<Token::Base>> _lex_char_literal();
 
   // Lex a string literal, e.g. `"foo"` or `"\o{146}oo"`,
   // including wrapping quotes.
-  generator<shared_ptr<Token::Base>> _lex_string_literal();
+  co::generator<shared_ptr<Token::Base>> _lex_string_literal();
 
   // Lex a numeric literal, e.g. `42`, `0.5e-3` or `0x1.2p-10`.
-  generator<shared_ptr<Token::Base>> _lex_numeric_literal();
+  co::generator<shared_ptr<Token::Base>> _lex_numeric_literal();
 
   // Create or return a `_macro` instance.
   unique_ptr<Macro> _ensure_macro();
 
   // Set the `_location.end` position to
-  // `_prev_cursor`; the copy of this object
+  // `_prev_cursor`; a copy of this object
   // would be returned from the function.
   //
   // Then sets the `_location.begin` position

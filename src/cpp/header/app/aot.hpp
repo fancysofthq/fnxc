@@ -1,3 +1,5 @@
+#pragma once
+
 #include "./shared/bc.hpp"
 
 namespace Onyx {
@@ -71,7 +73,7 @@ namespace App {
 class AOT : Shared::BC {
   const shared_ptr<Compiler::Unit> _entry;
   const filesystem::path _output;
-  const unsigned char _workers;
+  const unsigned short _workers;
   const bool _is_lib;
 
 public:
@@ -80,7 +82,7 @@ public:
       filesystem::path input,
       filesystem::path output,
       bool lib,
-      unsigned char workers);
+      unsigned short workers);
 
   // Compile a program.
   void compile();

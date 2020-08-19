@@ -1,3 +1,0 @@
-primitive Gen<Yield Y(B), out Return R>
-  derive Ref<Undef>
-end

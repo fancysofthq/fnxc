@@ -1,0 +1,14 @@
+require "../../../spec.nx"
+
+@describe("Macros") -> {
+  @describe(" nx.utils.rand()") -> {
+    @it() -> {
+      @assert({{ nx.utils.rand(10.49) }} == 10)
+      @assert({{ nx.utils.rand(10.50) }} == 11)
+      @assert({{ nx.utils.rand(10.51) }} == 11)
+      @assert({{ nx.utils.rand(10.49, 1) }} == 10.5)
+      @assert({{ nx.utils.rand(10.49, 2) }} == 10.49)
+      @assert({{ nx.utils.rand(10.49, 3) }} == 10.49)
+    }
+  }
+}

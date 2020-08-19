@@ -1,0 +1,7 @@
+trait Charset<Size: Z>
+  decl (char: \%c) : Char<self>
+end
+
+# The Universal Coded Character Set, as defined in ISO/IEC 10646.
+# This is the default charset for character literals in Onyx.
+namespace UCS <~ Charset<32>;

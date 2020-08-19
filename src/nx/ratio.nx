@@ -1,0 +1,68 @@
+primitive Ratio<Type: T ~ Int>
+  derive Real
+    impl add(another : self)
+      final temp = to_common_denom(this, another)
+
+      return self{
+        num: temp.num0 + temp.num1,
+        denom: temp.denom }
+    end
+
+    impl subtract(another : self)
+      final temp = to_common_denom(this, another)
+
+      return self{
+        num: temp.num0 - temp.num1,
+        denom: temp.denom }
+    end
+
+    private static def to_common_denom(a, b) : (
+      num0: T, num1: T, denom: T
+    )
+      final lcm = T.least_common_multiple(a.denom(), b.denom())
+
+      final new_a_num = (
+        unsafe! lcm.<private>div_exact(a.denom())
+      ) * a.num()
+
+      final new_b_num = (
+        unsafe! lcm.<private>div_exact(b.denom())
+      ) * b.num()
+
+      return ~~{ new_a_num, new_b_num, lcm }
+    end
+  end
+
+  native def numerator() : T
+  alias num = numerator
+
+  native def denominator() : T
+  alias denom = denominator
+
+  # TODO:
+  def canonical?() : Bool;
+  def canonicalize() : self;
+
+  def quotient() : T
+    return num() / denom()
+  end
+  alias quot = quotient
+
+  def modulo() : T
+    return num() % denom()
+  end
+  alias mod = modulo
+
+  def remainder() : T
+    return num().rem(denom())
+  end
+  alias rem = remainder
+end
+
+{% for i, _ in ipairs{8, 16, 32, 64, 128} do %}
+  alias SRBin{{ i }} = Ratio<SBin{{ i }}>
+  alias URBin{{ i }} = Ratio<UBin{{ i }}>
+{% end %}
+
+alias SRDec<*> = Ratio<SDec<*>>
+alias URDec<*> = Ratio<UDec<*>>

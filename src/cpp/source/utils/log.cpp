@@ -1,10 +1,12 @@
-#include "../../header/utils/log.hpp"
-#include "../../header/utils/null_stream.hpp"
 #include <chrono>
 #include <ctime>
 #include <iomanip>
+#include <iostream>
 #include <mutex>
 #include <thread>
+
+#include "../../header/utils/log.hpp"
+#include "../../header/utils/null_stream.hpp"
 
 static std::mutex mutex;
 static NullStream nullstream;
@@ -29,12 +31,12 @@ static void output_header(const char level) {
   std::cerr << "] ";
 }
 
-void fatal(char *msg) { lfatal() << msg << std::endl; }
-void error(char *msg) { lerror() << msg << std::endl; }
-void warn(char *msg) { lwarn() << msg << std::endl; }
-void info(char *msg) { linfo() << msg << std::endl; }
-void debug(char *msg) { ldebug() << msg << std::endl; }
-void trace(char *msg) { ltrace() << msg << std::endl; }
+void fatal(const char *msg) { lfatal() << msg << std::endl; }
+void error(const char *msg) { lerror() << msg << std::endl; }
+void warn(const char *msg) { lwarn() << msg << std::endl; }
+void info(const char *msg) { linfo() << msg << std::endl; }
+void debug(const char *msg) { ldebug() << msg << std::endl; }
+void trace(const char *msg) { ltrace() << msg << std::endl; }
 
 void fatal(std::string msg) { fatal(msg.c_str()); }
 void error(std::string msg) { error(msg.c_str()); }

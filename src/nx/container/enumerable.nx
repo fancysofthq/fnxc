@@ -1,0 +1,9 @@
+require "./indexable.nx"
+
+trait Container::Enumerable<Type: T>
+  decl each(block: -> |T : _|) : Void
+
+  reopen (self<V> && Indexable<K, V>) forall V, K
+    decl each(block: -> |(V, K) : _|) : Void
+  end
+end

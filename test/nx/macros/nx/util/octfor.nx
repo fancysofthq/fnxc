@@ -1,0 +1,14 @@
+require "../../../spec.nx"
+
+@describe("Macros") -> {
+  @describe(" nx.utils.octfor()") -> {
+    @it() -> {
+      @assert({{ nx.utils.octfor(0) }} == 0)
+      @assert({{ nx.utils.octfor(1) }} == 1)
+      @assert({{ nx.utils.octfor(255) }} == 1)
+      @assert({{ nx.utils.octfor(256) }} == 2)
+      @assert({{ nx.utils.octfor(65535) }} == 2)
+      @assert({{ nx.utils.octfor(65536) }} == 4)
+    }
+  }
+}

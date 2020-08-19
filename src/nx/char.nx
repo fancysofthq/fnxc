@@ -1,0 +1,5 @@
+require "./charset"
+
+# A codepoint in given `Charset`.
+distinct alias Char<Charset: CS> to UBin<CS::<Size>>
+end

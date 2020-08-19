@@ -4,7 +4,7 @@
 #include <string>
 
 enum Verbosity { Fatal, Error, Warn, Info, Debug, Trace };
-Verbosity verbosity = Info;
+extern Verbosity verbosity;
 
 void fatal(char *);
 void error(char *);

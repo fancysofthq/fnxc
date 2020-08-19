@@ -3,8 +3,8 @@
 #include <optional>
 #include <stack>
 
+#include "./ast.hpp"
 #include "./lexer.hpp"
-#include "./sast.hpp"
 
 using namespace std;
 namespace fs = experimental::filesystem;
@@ -12,16 +12,17 @@ namespace fs = experimental::filesystem;
 namespace Onyx {
 namespace Compiler {
 
-// Parses the tokens into meaningful source-level
-// abstract syntax tree (SAST).
+// Parses the tokens into the abstract syntax tree (AST).
+// The tree may be written into by multiple parsers
+// simulataneously, therefore it must be synchronized.
 class Parser {
   Lexer *_lexer;
 
   // The latest lexed token.
   shared_ptr<Token::Base> _token;
 
-  // This file SAST root.
-  shared_ptr<SAST::Node> _sast_root;
+  // This file's AST root.
+  shared_ptr<AST::Node> _AST_root;
 
 public:
   struct Error {
@@ -44,7 +45,7 @@ public:
         const fs::path);
   };
 
-  Parser(Lexer *, shared_ptr<SAST::Node> root);
+  Parser(Lexer *, shared_ptr<AST::Node> root);
 
   // Parse the file's requires (including imports).
   // By the language standards, requires can only
@@ -52,9 +53,9 @@ public:
   stack<Require> requirements();
 
   // Continue parsing the file.
-  shared_ptr<SAST::Node> next();
+  shared_ptr<AST::Node> next();
 
-  // shared_ptr<SAST::Expression> parse_expression();
+  // shared_ptr<AST::Expression> parse_expression();
 
 private:
   void _lex();
@@ -69,7 +70,7 @@ private:
   bool is_eof();
   void skip_newlines();
 
-  // Expressions are terminated with either newlines, semicolon or
+  // An expression is terminated with either a newline, semicolon or
   // EOF.
   bool is_terminator();
 };

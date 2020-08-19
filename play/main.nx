@@ -1,4 +1,0 @@
-require "./foo.nx"
-
-def main
-end

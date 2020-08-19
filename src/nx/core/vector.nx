@@ -1,2 +1,0 @@
-primitive Vector(Type T, Size S : SizeLiteral)
-end

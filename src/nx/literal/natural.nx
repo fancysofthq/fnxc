@@ -1,0 +1,10 @@
+# A natural literal.
+primitive %n
+  # Yield *block* multiple times,
+  # analogous to `UBin:times`.
+  def gen times(block ->)
+    \{% for i = 0, nx.scope.self.value do %}
+      block()
+    \{% end %}
+  end
+end

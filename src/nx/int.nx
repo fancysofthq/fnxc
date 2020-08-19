@@ -1,0 +1,117 @@
+primitive Int<Base: B ~ \%n, Signed: S ~ \%b, Size: Z ~ \%n>
+  derive Real;
+
+  struct Overflow;
+
+  static decl least_common_multiple(*[] : self)
+  alias lcm = least_common_multiple
+
+  static decl greatest_common_divisor(*[] : self)
+  alias gcd = greatest_common_divisor
+end
+
+alias IBin<*>, Bin<*> = Int<2, *>
+
+private macro @alias_binary_sizes(id)
+  alias \{{ id }}8 = \{{ id }}<8>
+  alias \{{ id }}16 = \{{ id }}<16>
+  alias \{{ id }}32 = \{{ id }}<32>
+  alias \{{ id }}64 = \{{ id }}<64>
+  alias \{{ id }}128 = \{{ id }}<128>
+end
+
+alias SIBin<*>, SBin<*> = IBin<true, *>
+@alias_binary_sizes("SIBin")
+@alias_binary_sizes("SBin")
+@alias_binary_sizes("SInt")
+
+alias UIBin<*>, UBin<*> = IBin<false, *>
+@alias_binary_sizes("UIBin")
+@alias_binary_sizes("UBin")
+@alias_binary_sizes("UInt")
+
+reopen Int<Base: 2, Signed: S, Size: Z> forall S, Z
+  impl ~Real:add(another : self) throws Overflow
+    final result = unsafe! uninitialized self
+    final overflowed? = unsafe! uninitialized Bit
+
+    \{%
+      local s = nx.scope.S.val and "s" or "u"
+      local t = "i" .. nx.scope.Z.val
+    %}
+
+    unsafe! asm
+    template llvm
+      %res = call {\{{ t }}, i1} @llvm.\{{ s }}add.\
+      with.overflow.\{{ t }}(\{{ t }} $0, \{{ t }} $1)
+      $2 = extractvalue {\{{ t }}, i1} %res, 1
+    in r(this), r(another)
+    out =r(overflowed?)
+    end
+
+    if overflowed?
+      throw Overflow()
+    else
+      unsafe! asm
+      template llvm
+        $0 = extractvalue {\{{ t }}, i1} %res, 0
+      out =r(result)
+      end
+
+      return result
+    end
+  end
+
+  impl nothrow wrapped_add(another : self)
+    final result = unsafe! uninitialized self
+
+    unsafe! asm
+    template llvm
+      $2 = add i\{{ nx.scope.Z.val }} $0, $1
+    in r(this), r(another)
+    out =r(result)
+    end
+
+    return result
+  end
+  alias wadd, %+ to wrapped_add
+
+  impl nothrow saturated_add(another : self)
+    final result = unsafe! uninitialized self
+
+    \{%
+      local s = nx.scope.S.val and "s" or "u"
+      local t = "i" .. nx.scope.Z.val
+    %}
+
+    unsafe! asm
+    template llvm
+      $2 = call \{{ t }} @llvm.\{{ s }}add.sat\
+      .\{{ t }}(\{{ t }} $0, \{{ t }} $1)
+    in r(this), r(another)
+    out =r(result)
+    end
+
+    return result
+  end
+  alias sadd, ^+ to saturated_add
+
+  # An LLVM-specific optimization.
+  private def nothrow unsafe div_exact(another : self)
+    final result = unsafe! uninitialized self
+
+    unsafe! asm
+    template llvm
+      $2 = \{{ nx.scope.S and "s" or "u" }}div exact \
+      i\{{ nx.scope.Z.val }} $0, $1
+    in r(this), r(another)
+    out =r(result)
+    end
+
+    return result
+  end
+end
+
+alias IDec<*>, Dec<*> = Int<10, *>
+alias SIDec<*>, SDec<*> = IDec<true, *>
+alias UIDec<*>, UDec<*> = IDec<false, *>

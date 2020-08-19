@@ -1,0 +1,57 @@
+# A stack growing upwards in memory.
+# TODO: Can change direction with a boolean generic argument.
+class Stack<Type: T, Size: Z ~ %n>
+  struct Overflow;
+  struct Underflow;
+
+  unsafe! @[NoFinalize]
+  final array = unsafe! uninitialized T[Z]
+
+  get size : Size = 0
+
+  def initialize();
+
+  def finalize()
+    # Only alive stack elements shall be finalized.
+    size.times() -> unsafe! @finalize(array[&])
+  end
+
+  def full?() : Bool
+    return size == Z
+  end
+
+  # Push a value into the stack.
+  # Returns the new stack size.
+  # Throws in case of stack overflow.
+  def push(val : T) : UBin16 throws Overflow
+    if (size ^+<<= 1) < Z
+      # Shall not finalize neither a corpse
+      # nor an uninitialized element.
+      unsafe! @nofinalize(array[size - 1] <<- val)
+
+      return size
+    else
+      throw Overflow()
+    end
+  end
+
+  # Pop a value from the stack.
+  # Throws in case of stack underflow.
+  # The popped value is moved, not copied.
+  def pop() : T throws Underflow
+    return pop?() ||
+      throw Underflow()
+  end
+
+  # Pop a value from the stack if it is not empty.
+  # Returns `Void` otherwise.
+  # The popped value is moved, not copied.
+  def pop?() : T?
+    if size ^-<<= 0 > 0
+      # The moved element becomes a corpse.
+      return unsafe! <-array[size]
+    else
+      return Void
+    end
+  end
+end

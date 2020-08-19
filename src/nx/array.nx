@@ -1,0 +1,40 @@
+primitive Array<Type: T, Size: Z ~ %n>
+  # `[](index: Size)` and `[](index: ~\%n)`
+  # are implemented natively, returning `T&` with the
+  # containing array's scope, accessibility and space.
+  #
+  # The runtime access method may throw `IndexError`
+  # if the *index* argument is out of bounds.
+
+  # Upon finalization, all the array's
+  # elements are finalized natively.
+
+  # TODO: Move it to C++.
+  # An LLVM implementation detail for
+  # accessing an array element in runtime.
+  # *index* is guaranteed to be in-bounds.
+  private unsafe nothrow def __fnxc_element_ptr(
+    this : Pointer<self, S, R, W, P>,
+    index : Size
+  ) : Pointer<T, S, R, W, P> forall S, R, W, P
+    final ptr = uninitialized Pointer<T, S, R, W, P>
+
+    \{%
+      local t = fnxc.llvm_type_for(nx.ctx.self)
+      local z = nx.target.size
+    %}
+
+    asm
+    template llvm
+      $2 = getelementptr inbounds \{{ t }}, \
+      \{{ t }}* $0, i\{{ z }} $1
+    in
+      r(this),
+      r(index)
+    out
+      =r(ptr)
+    end
+
+    return ptr
+  end
+end

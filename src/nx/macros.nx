@@ -1,0 +1,16 @@
+# Unsafely trigger an object finalization.
+# Further usage of the object is an undefined behaviour.
+# A compiler may finalize the object again.
+unsafe macro @finalize(obj)
+  \{% nx.ctx.finalize(obj) %}
+end
+
+# Unsafely remove the finalization
+# responsibility from the containing scope.
+unsafe macro @nofinalize(obj)
+  \{%
+    if nx.macro.obj.type:is_alive() then
+      nx.macro.obj.type:set_alive(false)
+    end
+  %}
+end

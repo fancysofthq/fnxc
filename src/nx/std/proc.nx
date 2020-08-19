@@ -1,7 +1,0 @@
-# `Proc` is a reference type, i.e. it can
-# be used w/o concrete generic arguments.
-primitive Proc<Interface T(U)>
-  native def address : Void*
-  native def closure : Void*?
-  native def call(args : ..U) : T
-end

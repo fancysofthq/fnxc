@@ -1,0 +1,101 @@
+# To run specs, these headers must be
+# implemented on the host machine.
+import "stdio", "stdlib"
+
+# A string must be zero-terminated.
+def puts(val : String*cr)
+  unsafe! $puts(val)
+end
+
+# TODO: Return-type overloading!
+def rand() : FBin64
+  return unsafe! $rand() / $RAND_MAX
+end
+
+def rand?() : Bool
+  return rand() > 0.5
+end
+
+macro @always(e1, e2)
+  volatile rand() > -1 ? \{{ nx.ctx.e1 }} : \{{ nx.ctx.e2 }}
+end
+
+macro @never(e1, e2)
+  volatile rand() > 2 ? \{{ nx.ctx.e1 }} : \{{ nx.ctx.e2 }}
+end
+
+macro @rand(*es)
+  case (unsafe! $rand()) % \{{ #nx.ctx.es }}
+  \{% for e, i in ipairs(nx.ctx.es) do %}
+    when \{{ i }} then \{{ e }}
+  \{% end %}
+  end
+end
+
+{%
+  nx.file.btsize = tonumber(os.getenv("BTSIZE")) or 64
+
+  if nx.file.btsize > 255 then
+    nx.panic "Shall not have backtrace size > 255"
+  end
+
+  nx.file.tests = {}
+  nx.file.test_id = 0
+  nx.file.rand_name = function () "a" end
+%}
+
+mut class SpecBacktrace
+  final stack = Stack<Backtrace::Loc, {{ nx.file.btsize }}>()
+
+  derive Backtrace
+    impl push(loc)
+      stack.push?(loc)
+    end
+
+    impl each(block ->)
+      stack.each(block)
+    end
+  end
+end
+
+macro @describe(title ~ %s, block ~ %->)
+  \{%
+    local name = next_name()
+    add_to_queue(name)
+    context = context .. title .. " "
+  %}
+
+  def \{{ name }}(__backtraces : Pointer)
+    \{{ block }}
+  end
+end
+
+macro @it(title ~ %s, block ~ %->)
+  final bt = SpecBacktrace()
+
+  try with &bt
+    \{{ block }}
+  catch |e : ExpectationError|
+    unsafe! $printf("Test failed")
+    unsafe! __backtraces[\{{ test_id }}] = bt
+  catch |e|
+    # Unhandled error
+    unsafe! __backtraces[\{{ test_id }}] = bt
+  end
+end
+
+def run_spec()
+  final &backtraces = unsafe! $malloc(
+    \{{ tests.size }} * @sizeof(SpecBacktrace)
+  ) as! SpecBacktrace[\{{ tests.size }}]*srw
+
+  \{% for name in ipairs(queue) do %}
+    \{{ name }}()
+  \{% end %}
+
+  failed.each() -> |test| do
+    unsafe! $printf("Failed %s")
+  end
+
+  unsafe! $free(&backtraces)
+end

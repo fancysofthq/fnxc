@@ -1,63 +1,97 @@
-# OnyxC
+# Fancy Onyx Compiler
 
-OnyxC is the canonical Onyx Compiler. It relies on LLVM to do cross-platform heavy-lifting.
+An Onyx programming language compiler implementation.
+
+## About
+
+The [Fancy Onyx Compiler](https://fnxc.fancysoft.xyz) (FNXC) is an Onyx programming language compiler implementation built in C++ on top of [LLVM](http://llvm.org/).
+
+Target ISAs supported by FNXC are `i386`, `amd64`, `arm7` and `arm8`.
+
+The `fnxc` binary implements the Onyx Compiler Interface standard (the `build` and `doc` commands), and does not peform neither linking nor dependency management.
+For a fully-featured building environment, see [Fancy Onyx](https://fnx.fancysoft.xyz), which may use FNXC as a dependency.
+
+Additional features of FNXC include running a program in JIT mode, REPL and Onyx Language Server Protocol implementations, and formatting.
+
+## Usage
 
 ```console
-$ onyxc -h
-OnyxC, the canonical Onyx language compiler
+$ fnxc -h
+Fancy Onyx Compiler, v0
 
 Usage:
-  <file>, run <file>  Run a file in JIT mode
-  build <file>        Build a file in AOT mode
-  api <file>          Build API documentation
-  repl                Run the REPL
-  serve               Run the language server
-  format <file>       Run the formatter
-```
-
-```console
-$ onyxc repl -h
-The canonical Onyx Read-Eval-Print Loop
-REPL version 1.0.0, OnyxC version 1.0.0
-
-Usage:
-  $ onyxc repl [options]
+  $ fnxc, fnxc repl               Run the REPL
+  $ fnxc <file>, fnxc run <file>  Run a file in JIT mode
+  $ fnxc build <file>             Build a file in AOT mode
+  $ fnxc doc <file>               Build documentation
+  $ fnxc serve                    Run the LSP server
+  $ fnxc format <file>            Run the formatter
 
 Options:
-  -[-h]elp    Display this help
-  -[-v]ersion Display the REPL version
-
-  -[-r]equire <path>
-
-    Require before running for the first time
-
-      $ onyxc repl -rstd/io
-      $ onyxc repl --require file.nx
-
-  -[-R]equire-path <path>
-
-    Add path to look up on requiring
-
-      $ onyxc repl -R.shard -rstd/io
-
-  -[-I]nclude-path <path> Add include lookup path
-  -[-l]ib <libname>       Add a library to link
-  -[-L]ib-path <path>     Add library lookup path
-
-  -[-O]ptimize <level>
-
-    Enable JIT optimizations from 0 (default) to 2
-
-      $ onyxc repl -O1
+  -[-h]elp    Display help on topic
+  -[-v]ersion Display FNXC version
 ```
 
-## Targets
+## Development
 
-Target consists of two parts: ISA ABI and OS ABI. Not all combinations are supported by the compiler, though.
+1. Clone the FNXC repository.
 
-ISA / OS | `eabi` | `linux` | `win32` | `darwin` | `bsd`
----      | ---    | ---     | ---     | ---      | ---
-`x86_64` | T?     | T?      | T?      | T?       | T?
-`arm`    | T?     | T?      | T?      | T?       | T?
-`spark`  | T?     | T?      | T?      | T?       | T?
-`riscv`  | T?     | T?      | T?      | T?       | T?
+    ```console
+    git clone https://github.com/fancysofthq/fnxc
+    ```
+
+1. Put the SQLite3 extensions source code under `lib/sqlite3/ext`, using either variant, so the `noop()` extension source code resides at `lib/sqlite3/ext/misc/noop.c`.
+
+    1. Use [Fossil SCM](https://fossil-scm.org/).
+
+        ```console
+        mkdir lib/sqlite3
+        cd lib/sqlite3
+        fossil clone https://www.sqlite.org/src sqlite.fossil
+        fossil open sqlite.fossil
+        cd ../..
+        ```
+
+    1. Download a snapshot of the complete (raw) source tree from https://sqlite.org/download.html (e.g. `sqlite-src-3330000.zip`), and extract the `ext` folder to `lib/sqlite3/ext`.
+
+1. Install [VCPKG](https://github.com/Microsoft/vcpkg).
+Make sure you have `vcpkg.exe` in your `PATH` environment variable.
+
+1. Configure the compiler using a recent [CMake](https://cmake.org/) version.
+This will automatically install the dependencies.
+
+    ```console
+    mkdir build
+    cd build
+
+    # You have to set VCPKG as the CMake toolchain
+    cmake \
+      -DCMAKE_TOOLCHAIN_FILE=${VCPKG_PATH}/scripts/buildsystems/vcpkg.cmake \
+      ../
+    ```
+
+1. Build the compiler.
+
+    ```console
+    # From ./build
+    make fnxc
+    ./fnxc -v
+    ```
+
+1. (Optional) Run C++ tests during development
+
+    ```console
+    # From ./build
+    make tests
+    ctest
+    ```
+
+1. (Optional) Run Onyx tests once the compiler is compiled
+
+    ```console
+    # From ./build
+    ./fnxc ../test/nx/all.nx
+    ```
+
+NOTE: Do not clutter `.gitignore` with files local to your workflow!
+Use the `$GIT_DIR/info/exclude` file instead, as per [Git documentation](https://git-scm.com/docs/gitignore).

@@ -1,0 +1,15 @@
+trait Container::Indexable<Key: K, Value: V>
+  # Get a copy of value at *index*.
+  decl get(index: K) : V
+  alias [] to get
+
+  # Assign a *value* at *index*,
+  # finalizing the old value.
+  decl set(index: K, value: V) : Void
+  alias []= to set
+
+  # Push-assign a *value* at *index*,
+  # returning the old value.
+  decl replace(index: K, value: V) : V
+  alias []<<= to replace
+end

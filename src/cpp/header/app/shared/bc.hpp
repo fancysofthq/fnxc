@@ -1,7 +1,9 @@
 #pragma once
-#include "../../compiler/panic.hpp"
+
 #include <mutex>
 #include <optional>
+
+#include "../../compiler/panic.hpp"
 
 namespace Onyx {
 namespace App {
@@ -31,7 +33,7 @@ protected:
   void enqueue(shared_ptr<Compiler::Unit>);
 
   // A working function for a thread.
-  // NOTE: `enqueue` with the entry compilation unit should be called
+  // NOTE: `enqueue` with the entry compilation unit shall be called
   // before any thread began working.
   void work();
 

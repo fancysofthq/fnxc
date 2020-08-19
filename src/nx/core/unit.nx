@@ -1,6 +1,0 @@
-# This module is implicitly derived by `unit`s.
-# A unit object can not be initialized, but it can have variables
-# and methods, which are implicitly "static", much like namespaces.
-@[Underiveable]
-module Unit < Namespace
-end

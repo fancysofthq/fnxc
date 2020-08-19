@@ -1,0 +1,33 @@
+require "./numeric.nx"
+
+trait Real
+  derive Numeric;
+
+  decl equals?(number: ~Numeric) : Bool
+  alias eq?, == to equals?
+
+  decl add(number: self) : self
+  alias + to add
+
+  decl subtract(number: self) : self
+  alias sub, - to subtract
+
+  decl multiply(number: self) : self
+  alias mul, * to subtract
+
+  decl divide(number: self) : self
+  alias div, / to divide
+
+  # Return the modulo operation result, where the result
+  # is either zero or has the same sign as the argument.
+  decl modulo(number: self) : self
+  alias mod, % to modulo
+
+  # Return the remainder from the division, where the result
+  # is either zero or has the same sign as the callee.
+  decl remainder(number: self) : self
+  alias rem = remainder
+
+  decl power(number: self) : self
+  alias pow, ** to power
+end

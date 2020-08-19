@@ -1,0 +1,67 @@
+# An IEEE-754 floating-point number.
+primitive Float<
+  Base ~ (2 || 10),
+  Precision ~ \%n,
+  EMax ~ \%n
+>
+  derive Real;
+
+  # A floating-point underflow error.
+  struct Underflow;
+end
+
+alias FBin<
+  SignificandBits,
+  ExponentBits ~ %n
+> = Float<
+  2,
+  Precision: SignificandBits,
+  EMax: \{{ nx.utils.round(2 ^ (nx.ctx.ExponentBits - 1) - 1) }}
+>
+
+# TODO: Also add for ARM targets.
+{%
+  if nx.target.isa == "x86" and
+    nx.target.ise:includes("f16c") then
+%}
+  # Not basic, but supported by LLVM (`half`)
+  alias FBin16 = FBin<11, 5>
+{% end %}
+
+alias FBin32 = FBin<24, 8>
+alias FBin64 = FBin<53, 11>
+
+{% if nx.target.isa.id == "x86" then %}
+  # `fp128` in LLVM
+  alias FBin128 = FBin<113, 15>
+{% end %}
+
+{%
+  if nx.target.isa.id == "x86" and
+    nx.target.ise:includes("x87") then
+%}
+  # `x86_fp80` in LLVM
+  alias FBin64E, ISA::X86::X87Float80 = FBin<64, 16>
+{% end %}
+
+# TODO: Also add ARMv8.6-A.
+{%
+  if nx.target.isa == "x86" and
+    nx.target.ise:includes("avx512") then
+%}
+  # `bfloat` in LLVM
+  alias BFloat16 = FBin<8, 8>
+{% end %}
+
+alias FDec<
+  Digits,
+  ExponentBits ~ %n
+> = Float<
+  10,
+  Precision: Digits,
+  EMax: \{{ nx.util.round(3 * 2 ^ (nx.ctx.ExponentBits - 2) / 2) }}
+>
+
+alias FDec32 = FDec<7, 8>
+alias FDec64 = FDec<16, 10>
+alias FDec128 = FDec<34, 14>

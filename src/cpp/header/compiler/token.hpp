@@ -1,11 +1,12 @@
 #pragma once
 
-#include "./location.hpp"
 #include <optional>
 #include <set>
 #include <unordered_map>
 #include <variant>
 #include <vector>
+
+#include "./location.hpp"
 
 namespace Onyx {
 namespace Compiler {

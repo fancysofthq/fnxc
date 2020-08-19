@@ -1,0 +1,11 @@
+primitive %i
+  # Add another integer literal.
+  #
+  # ```
+  # @assert(1 + (-2) == -1)
+  # ```
+  def add(_ : T) forall T ~ %i
+    return \{% nx.scope.self.val + nx.scope.T.val %}
+  end
+  alias + to add
+end
