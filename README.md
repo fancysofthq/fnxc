@@ -40,19 +40,21 @@ Options:
     git clone https://github.com/fancysofthq/fnxc
     ```
 
-1. Put the SQLite3 extensions source code under `lib/sqlite3/ext`, using either variant, so the `noop()` extension source code resides at `lib/sqlite3/ext/misc/noop.c`.
+1. Put the SQLite3 extensions source code under `lib/cpp/sqlite3/ext`, using either variant, so the `noop()` extension source code resides at `lib/cpp/sqlite3/ext/misc/noop.c`.
 
     1. Use [Fossil SCM](https://fossil-scm.org/).
 
-        ```console
-        mkdir lib/sqlite3
-        cd lib/sqlite3
-        fossil clone https://www.sqlite.org/src sqlite.fossil
-        fossil open sqlite.fossil
-        cd ../..
+        ```sh
+        $ mkdir lib/cpp/sqlite3
+        $ cd lib/cpp/sqlite3
+        $ fossil clone https://www.sqlite.org/src sqlite.fossil
+        $ fossil open sqlite.fossil
         ```
 
-    1. Download a snapshot of the complete (raw) source tree from https://sqlite.org/download.html (e.g. `sqlite-src-3330000.zip`), and extract the `ext` folder to `lib/sqlite3/ext`.
+    1. Download a snapshot of the complete (raw) source tree from https://sqlite.org/download.html (e.g. `sqlite-src-3330000.zip`), and extract the `ext` folder to `lib/cpp/sqlite3/ext`.
+
+    1. TODO: Enable extensions in the VCPG `sqlite3` dependency.
+
 
 1. Install [VCPKG](https://github.com/Microsoft/vcpkg).
 Make sure you have `vcpkg.exe` in your `PATH` environment variable.

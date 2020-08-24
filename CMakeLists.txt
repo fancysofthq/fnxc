@@ -74,7 +74,7 @@ target_link_libraries(test-sqlite SQLiteCpp)
 # Build targets
 #
 
-add_library(sqlite3-ext-regexp STATIC lib/sqlite3/ext/misc/regexp.c)
+add_library(sqlite3-ext-regexp STATIC lib/cpp/sqlite3/ext/misc/regexp.c)
 
 add_library(utils-log src/cpp/source/utils/log.cpp)
 add_library(utils-null_stream src/cpp/source/utils/null_stream.cpp)
