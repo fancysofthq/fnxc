@@ -34,8 +34,11 @@ find_package(SQLiteCpp 3 CONFIG REQUIRED)
 find_package(doctest 2.4 CONFIG REQUIRED)
 find_package(Lua 5.3 REQUIRED)
 
-# find_package(llvm 8.0 REQUIRED)
-# include_directories(${LLVM_INCLUDE_DIRS})
+find_package(LLVM 10.0 REQUIRED CONFIG)
+message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
+message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+include_directories(${LLVM_INCLUDE_DIRS})
+add_definitions(${LLVM_DEFINITIONS})
 
 # Tests
 #

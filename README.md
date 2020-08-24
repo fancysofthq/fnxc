@@ -36,8 +36,8 @@ Options:
 
 1. Clone the FNXC repository.
 
-    ```console
-    git clone https://github.com/fancysofthq/fnxc
+    ```sh
+    $ git clone https://github.com/fancysofthq/fnxc
     ```
 
 1. Put the SQLite3 extensions source code under `lib/cpp/sqlite3/ext`, using either variant, so the `noop()` extension source code resides at `lib/cpp/sqlite3/ext/misc/noop.c`.
@@ -55,44 +55,76 @@ Options:
 
     1. TODO: Enable extensions in the VCPG `sqlite3` dependency.
 
+1. Install LLVM `~> 10` with exception handling enabled.
+Make sure the `LLVMConfig.cmake` file can be found at `${LLVM_DIR}` (a variable later passed to CMake).
+
+    When building LLVM from source, set the following CMake variables:
+
+    ```
+    -DLLVM_ENABLE_EH=ON
+    -DLLVM_ENABLE_RTTI=ON
+    -DLLVM_TARGETS_TO_BUILD=X86;ARM
+    ```
+
+    For example, on a Windows x64 machine:
+
+    ```sh
+    $ cmake \
+      -Thost=x64 \
+      -DCMAKE_C_COMPILER="C:/msys64/mingw64/bin/clang-cl.exe" \
+      -DCMAKE_CXX_COMPILER="C:/msys64/mingw64/bin/clang-cl.exe" \
+      -DCMAKE_LINKER="C:/msys64/mingw64/bin/lld-link.exe" \
+      -DCMAKE_RANLIB="C:/msys64/mingw64/bin/llvm-ranlib.exe" \
+      -DCMAKE_AR="C:/msys64/mingw64/bin/llvm-ar.exe" \
+      -DLLVM_ENABLE_WARNINGS=OFF \
+      -DLLVM_ENABLE_LTO=THIN \
+      -DLLVM_ENABLE_EH=ON \
+      -DLLVM_ENABLE_RTTI=ON \
+      -DLLVM_TARGETS_TO_BUILD="X86;ARM"
+    ```
+
+    NOTE: For LTO usage with CLang, see https://clang.llvm.org/docs/ThinLTO.html#clang-bootstrap.
+
+    NOTE: The manual LLVM installation shall be replaced with VCPKG dependency.
+    Right now it:
+
+      1. Does not support exception handling.
+
+      1. Does not allow to use compiler other than MSVC, which fails with some `inconsistent behavior between llvm:: and std:: implementation of is_trivially_copyable` error on my machine.
 
 1. Install [VCPKG](https://github.com/Microsoft/vcpkg).
 Make sure you have `vcpkg.exe` in your `PATH` environment variable.
 
 1. Configure the compiler using a recent [CMake](https://cmake.org/) version.
-This will automatically install the dependencies.
+This will automatically install VCPKG  dependencies.
 
-    ```console
-    mkdir build
-    cd build
-
-    # You have to set VCPKG as the CMake toolchain
-    cmake \
+    ```sh
+    # Note: change VCPKG_PATH and LLVM_DIR to reflect your environment
+    $ cmake \
       -DCMAKE_TOOLCHAIN_FILE=${VCPKG_PATH}/scripts/buildsystems/vcpkg.cmake \
-      ../
+      -DLLVM_DIR=${LLVM_DIR}
     ```
 
 1. Build the compiler.
 
-    ```console
-    # From ./build
-    make fnxc
-    ./fnxc -v
+    ```sh
+    $ cmake --build . -t fnxc
+    $ ./fnxc -v
     ```
+
+    Pro tip: On Windows 10, temporaly disable Microsoft Defender Antivirual real-time protection to speed up the build.
 
 1. (Optional) Run C++ tests during development
 
-    ```console
-    # From ./build
-    make tests
-    ctest
+    ```sh
+    $ cmake --build . -t tests
+    $ ctest
     ```
 
 1. (Optional) Run Onyx tests once the compiler is compiled
 
-    ```console
-    # From ./build
-    ./fnxc ../test/nx/all.nx
+    ```sh
+    $ ./fnxc ../test/nx/all.nx
     ```
 
 NOTE: Do not clutter `.gitignore` with files local to your workflow!
