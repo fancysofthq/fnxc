@@ -1,0 +1,101 @@
+= Caching
+
+TODO: Caching is required to speed up consecutive builds.
+By default, all FNXC cache is stored in a `./.fnxccache` directory relative to the working directory.
+It is possible to redefine the cache directory using the `cache-dir` option, e.g. `-C/tmp/cache`.
+
+TODO: Different target parameters imply different cache units.
+The parameters include ISA, ABI, XFF, CPU, CPU features etc.
+A parameters hash is used as a cache differentiator, for example:
++
+```
+.onyxccache/
+  79cd5a0a31b1572a3ef41084ab96ad18/ # x86_64-linux-elf
+    main.nxbc
+  023cc7e58a92677e2811b68573e96b36/ # x86_64-win32-pe
+    main.nxbc
+```
+
+== Type dependency
+
+TODO: Track usage of a type, build a graph.
+
+== Macro idempotency
+
+By default, a file evaluating *any* macro code is marked as a non-cacheable.
+
+Caching may be enabled back for a file by setting a custom `nx.file.cache(value)` macro function.
+
+After parsing a file having an `nx.file.cache(value)` function set, this function is called.
+The compiled function code and the retured value are saved in the cache.
+
+Upon subsequent translations, the function code is evaluated and called with the current cache value prior to parsing the file.
+If the returned value differs from the current cache value, the file is invalidated and its cache is removed.
+Otherwise, the file contents is read from the cache.
+
+For example:
+
+====
+```nx
+{%
+  -- The file is somehow dependent
+  -- on the `myfile` contents.
+  io.read("myfile")
+%}
+
+{%
+  nx.file.cache = function (old)
+    -- The `lfs` module shall be accessible
+    -- from the compilation context.
+    local lfs = require "lfs"
+
+    local new, err = lfs.attributes(
+      "myfile", 'modification')
+
+    if err then
+      error(err)
+    else
+      return new
+    end
+  end
+%}
+```
+====
+
+=== Future work
+
+The Standard could have defined a set of idempotent Lua behaviour.
+For example, a simple `for i = 0, 3 do nx.emit(i) end` loop clearly does not depend on outer context.
+
+However, the `nx.emit` function itself could potentially be altered to actually depend on some outer condition.
+This is not usually practical, but if it happens, then the file shall not be idempotent anymore.
+
+It is possible to track all calls with `debug.sethook(func, "c")` and analyze a called function to determine if it has been altered (from its source location, for example).
+
+With that in mind, it is possible to mark certain built-in functions idempotent, e.g. `math.abs(x)`.
+They usually have `[C]` source location, and if it's not, then it's a custom function (e.g. `math.myfunc`), and shall not be idempotent.
+
+However, throwing a debug hook on *every* call implies serious performance overhead.
+
+An alternative would be intercepting non-idempotent standard function calls only, for example:
+
+```lua
+local old_system_clock = system.clock
+
+function system.clock()
+  nx.file.idempotent = false
+  return system.clock()
+end
+```
+
+It is also theoretically possible to determine whether a required file is a C library.
+If it is so, then we mark the requiring file non-idempotent, as we don't know anything about the C library.
+So, a custom global `require` override is needed.
+
+This could work, but there is never a guarantee that an already overriden non-idempotent functions (i.e. `system.clock` and `require`) would not be overriden once again to remove the `nx.file.idempotent = false` line.
+So this is not reliable.
+
+However, macros are not safe by their nature, are they?
+We could thus transfer the responsibilty of guaranting the non-overriding of those special functions to an Onyx developer.
+
+In the worst scenario, a file with presumbaly non-idempotent macros (e.g. with a `system.clock()` call) would be always cached, ignoring the otherwise desired outer triggers.

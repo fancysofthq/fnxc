@@ -1,0 +1,24 @@
+= The Fancy Onyx Compiler documentation
+:toc: left
+:sectnums:
+:sectlinks:
+:icons: font
+Vlad Faust <vlad@fancysoft.xyz>
+v0.0.0, August 24, 2020
+
+[preface]
+== Foreword
+
+The https://nxsf.org/onyx[Onyx programming language Standard] specifies the language itself, but not implementation details of a compiler (with an exception being the Onyx CLI Standard specification).
+
+Vendors are shipping their own Onyx compiler implementations, with subtle or significant differences: the variety of supported targets, implied optimizations, and even compilation modes.
+
+The following document describes implementation details of the Fancy Onyx Compiler, an Onyx compiler implementation by https://fancysoft.xyz[Fancy Software], shortcut as FNXC.
+
+include::./platforms.adoc[leveloffset=+1]
+
+include::./modes.adoc[leveloffset=+1]
+
+include::./cli.adoc[leveloffset=+1]
+
+include::./implementation.adoc[leveloffset=+1]

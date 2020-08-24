@@ -1,0 +1,128 @@
+= CLI
+:toc:
+:sectnums:
+
+This section describes command line interface (CLI) of the `fnxc` executable on any platform.
+
+The exact syntax of passing arguments to the CLI is OS-defined.
+
+On Windows, options are passed as `/h`, `/help`, and sub-options are passed as `/debug [/format=dwarf4 /egdb]`.
+On Unix, options are passed as `-h`, `--help`, and sub-options are passed as `--debug [--format=dwarf4 -egdb]`.
+
+The following documentation is for a Unix operating system as a host.
+
+== Overview
+
+```console
+$ fnxc -h
+Fancy Onyx Compiler, v0
+
+Usage:
+  $ fnxc, fnxc repl               Run the REPL
+  $ fnxc <file>, fnxc run <file>  Run a file in JIT mode
+  $ fnxc build <file>             Build a file in AOT mode
+  $ fnxc doc <file>               Build documentation
+  $ fnxc serve                    Run the LSP server
+  $ fnxc format <file>            Run the formatter
+  $ fnxc cli <options>            Run an Onyx CLI command
+
+Options:
+  -[-h]elp    Display help
+  -[-v]ersion Display FNXC version
+```
+
+== REPL
+
+In Read-Eval-Print Loop (REPL) mode, the compiler reads input from terminal and evaluates it.
+Note that there is no actual "print" part.
+
+```console
+$ fnxc repl -h
+Run the Read-Eval-Print Loop
+
+Usage:
+  $ fnxc [options]
+  $ fnxc repl [options]
+
+Options:
+
+include::./shared/cli.txt[tag=jit, cmd="jit", indent=2]
+```
+
+A REPL session example:
+
+```console
+$ fnxc -rnxpkg.org/std/io
+> final msg = "Hello, world!\0"
+> Std.puts(msg)
+Hello, world!
+> ^C
+$
+```
+
+== Running a program
+
+Running a program means executing it in the https://en.wikipedia.org/wiki/Just-in-time_compilation[JIT compilation] mode.
+This mode supports the `hot` flag, which watches for changes in source files and re-compiles code on-the-fly without the need to restart the running program.
+Note that only a subset of changes is suitable for hot reloading, such as constants or function bodies.
+
+```console
+$ fnxc run -h
+Run a program in JIT compilation mode
+
+Usage:
+  $ fnxc <file> [options]
+  $ fnxc run <file> [options]
+
+Options:
+
+include::./shared/cli.txt[tag=jit, cmd="jit", indent=2]
+
+  -[-H]ot
+
+    Enable hot reloading.
+
+      $ fnxc main.nx -H
+```
+
+== Compiling a program
+
+With `fnxc build`, a program is AOT-compiled into a single object file.
+The resulting object file then should be linked with a system linker.
+
+NOTE: For a convenient higher-level build tool, see https://fancysoft.xyz/fnx[fnx].
+
+```console
+$ fnxc build -h
+Compile a program
+
+Usage:
+  $ fnxc build {file}- [options]
+
+Options:
+  -[-h]elp    Display this help
+
+  -[-t]arget
+
+    Set the target to build for.
+    Defaults to the host target.
+
+  -[-o]utput
+
+    Set the output object file path. Defaults to <file><ext>,
+    where <file> is the input file name without extension,
+    and <ext> is the default format inferred from target
+    platform and executable file [-f]ormat.
+
+  -[-f]ormat
+
+    The target-specific executable file format.
+    Defaults to `pe` on Windows and `elf` on Unix.
+
+  -[-R]equire-path <path> Add a require lookup path
+  -[-I]mport-path <path>  Add an import lookup path
+  -[-O]ptimize <level>    Enable optimizations
+```
+
+TODO: There is no implicit initialization code in Onyx.
+Command-line arguments may be retreived using `GetCommandLine()` from `processenv.h` on Windows or by reading `/proc/self/cmdline` on Linux etc.

@@ -1,6 +1,6 @@
 namespace Onyx {
 namespace App {
-// The canonical Language Server Protocol implementation.
+// The Language Server Protocol application.
 class LSP {
 public:
   LSP(unsigned char workers);

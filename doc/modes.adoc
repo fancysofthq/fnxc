@@ -1,0 +1,197 @@
+= Execution modes
+:toc:
+:sectnums:
+
+FNXC binary can be executed in different modes.
+
+== AOT compilation
+
+In the https://en.wikipedia.org/wiki/Ahead-of-time_compilation[Ahead-Of-Time compilation] mode, FNXC builds a program contained in the input file into a single object file.
+The resulting object file then should be linked by an external tool to produce an executable.
+
+By default, the target platform is the host platform, i.e. the one the compiler is currently running at.
+The platform information includes ISA, ISE, OS and PU.
+It is possible to set a custom target platform in compilation options.
+
+=== Optimization
+
+FNXC is able to optimize the emitted code.
+There are multiple built-in levels of optimization, controlled with the `optimize` flag, defined in xref:table-aot-optimization-levels[].
+The option may be passed as `-OP` or `--optimize P` on Unix.
+
+[[table-aot-optimization-levels]]
+.AOT optimization levels
+[cols="1m, 3*", options="header"]
+|===
+| Flag value | Compilation speed | Performance | Binary size
+
+| 0
+| Fastest
+| (0) Worst
+| (0) Biggest
+
+| 1
+| Fast
+| (1) Bad
+| (1) Big
+
+| 2
+| Slow
+| (2) Good
+| (1) Big
+
+| P
+| Slower
+| (3) Best
+| (0) Biggest
+
+| S
+| Slower
+| (1) Bad
+| (3) Smallest
+|===
+
+`0` is the default, implicit value.
+It implies no optimization, but the fastest compilation, hence good for development.
+`1` is perfect for staging, `2` is a fairly balanced optimization for production.
+Other flags are biased for either greater performance or smaller binary size.
+
+It is possible to specify `performance` and `size` sub-options explicitly as numbers from 0 to 3. Their sum roughly reflects the compilation time and must be less than or equal to 4, e.g.
+`-O[-p2 -s2]`, but not `-O[-p3 -s2]`.
+If the second value is omitted, it is then implied zero, e.g. `-O[-p3]` implies `-O[-p3 -s0]`.
+
+TODO: Some of the optimizations are contained in the informative Standard Appendix.
+
+=== Debugging
+
+Passing a `debug` option to the compiler enables emission of debugging information.
+
+By default, the debugging information format is the most suitable for target executable file format, e.g. latest https://en.wikipedia.org/wiki/DWARF[DWARF] for https://en.wikipedia.org/wiki/Executable_and_Linkable_Format[Elf].
+The format may be set explicitly by setting the `debug` option value or passing a `format` sub-option to it.
+
+An `extension` sub-option may also be passed to enable specific debugger's extensions, e.g. `-d[-egdb]`.
+
+[cols=3, options="header"]
+|===
+| Target XFF
+| Supported formats
+| Extensions
+
+| Elf
+| `dwarf3`, `dwarf4` (default)
+| `gdb`, `lldb`
+
+| https://en.wikipedia.org/wiki/Portable_Executable[PE]
+| https://en.wikipedia.org/wiki/COFF[`coff`] (default)
+|
+|===
+
+== JIT compilation
+
+In the JIT mode, LLIR is not stored on the disk.
+Instead, it's loaded directly into the LLVM JIT engine, with optional optimizations.
+
+JIT compilation happens on the same machine, thus there is no need to worry about the resulting binary size.
+Hence the optimization only cares about a compiled function performance.
+
+Only `0`, `1` and `2` optimization flags are therefore applicable in JIT mode, all corresponding the performace optimization level, as there is no need to worry about resulting binary size.
+Lesser value reduces the time required to pre-compile the code, and greater value increases the compiled code performance.
+
+=== Optimization
+
+=== Debugging
+
+=== Hot reloading
+
+TODO: When hot reloading is enabled, source files in the dependency tree are being contiguously watched for updates.
+Internally, the compiler compares NXIRs before and after an update.
+Only certain types of changes trigger hot reloading:
+
+* Function body changes, but not of their prototypes.
+
+* New function definitions, including overloading.
+This could lead to dependant functions (i.e. which are or may be calling the new function) reloading as well.
+
+* New `require`s and `import`s.
+Deleting them would require full reload.
+
+* Value changes of static variables, but not of their types.This includes updates of variables' default values.
+
+As a rule of thumb, any data layout change would require full reloading.
+The JIT execution may continue without interruption, though.
+
+=== REPL
+
+TODO: The REPL (Read-Eval-Print-Loop, however, the Print part isn't implemented) mode is architecturally similar to JIT.
+Code read from the input is injected contiguously into an implicit `repl` function.
+A transparent stack frame is allocated in the dynamic memory upon the session start and passed as an argument to the `repl` function on every loop.
+
+TODO: That is an approximation of the `repl` function.
++
+```nx
+# Passed using `require` option
+require "io" from ".shard/std"
+
+def repl(frame : $void*, stack_offset : $int)
+entry:
+  # Code from the previous loops
+  #
+
+  let x = unsafe { alloca SInt32 }
+  let y = unsafe { alloca SInt32 }
+
+  set_stack_to(frame + stack_offset)
+
+    # Current loop code
+    #
+
+    Std.out << y # Would output 43
+
+  # Implicit return
+  #
+
+  return frame + @sizeof(SInt32) * 2 # Return the new offset
+end
+```
+
+== Documentation generation
+
+FNXC can generate documentation for a target program.
+
+The default `format` option value for generated documentation is `bin`, i.e. the standardized Onyx Binary API format.
+If the format set to C header, only the exported entities are documented.
+For example, `fnxc doc -fh main.nx -omain.h`.
+
+.API documentation formats
+[cols="1, 1m", options="header"]
+|===
+| Format
+| Option value and default extension
+
+| Onyx Binary API (default)
+| bin
+
+| MessagePack
+| msgpack
+
+| JSON
+| json
+
+| DSON
+| dson
+
+| YAML
+| yaml
+
+| XML
+| xml
+
+| C header
+| h
+|===
+
+== LSP serving
+
+== Formatting
+
+== Onyx CLI

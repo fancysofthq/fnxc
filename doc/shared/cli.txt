@@ -1,0 +1,26 @@
+tag::jit[]
+-[-h]elp  Display this help
+
+-[-r]equire <path>
+
+  Require a file before running the first iteration.
+
+    $ fnxc {cmd} -rstd/io
+    $ fnxc {cmd} --require file.nx
+
+-[-R]equire-path <path>
+
+  Add a path to look up on requiring.
+
+    $ fnxc {cmd} -R nxpkg.org -r std/io
+
+-[-I]import-path <path> Add an import lookup path
+-[-l]ib <libname>       Add a library to link with
+-[-L]ib-path <path>     Add a library lookup path
+
+-[-O]ptimize <level>
+
+  Enable JIT optimizations from 0 (default) to 2.
+
+    $ fnxc {cmd} -O1
+end::jit[]

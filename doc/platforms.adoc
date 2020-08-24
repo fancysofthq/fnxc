@@ -1,0 +1,33 @@
+= Platforms support
+:toc:
+:sectnums:
+
+== Host platforms
+
+FNXC is written in fairly-portable standard C++20 with a major dependency on LLVM 10.
+
+The developers claim supporting recent versions of `Windows`, `Linux` and `MacOS` operating systems on `amd64`, `arm7` and `arm8` architectures as host platforms.
+
+== Target platforms
+
+An Onyx program may be compiled for one of `amd64`, `arm7`, `arm8`, `nvptx` or `amdgpu` architectures with FNXC.
+
+The implementation is aware of a subset of processors defined by the Standard, as per xref:table-list-of-known-processors[].
+
+[[table-list-of-known-processors]]
+.List of known processors
+[cols="3", options="header"]
+|===
+| ISA
+| Vendor
+| ID
+
+.3+m| amd64
+.2+| Intel(R)
+m| kabylake
+
+m| skylake
+
+| AMD (R)
+m| zen+
+|===

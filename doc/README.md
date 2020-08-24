@@ -1,48 +1,18 @@
-```console
-$ fnxc repl -h
-Run the Onyx Read-Eval-Print Loop
+# FNXC documentation
 
-Usage:
-  $ fnxc [options]
-  $ fnxc repl [options]
+This directory contains documentation for FNXC: its CLI, implementation details etc.
 
-Options:
-  -[-h]elp  Display this help
+## Documentation compilation
 
-  -[-r]equire <path>
+The documentation is written in [Asciidoctor](https://asciidoctor.org/) format.
+The `index.adoc` file contains all the documentation included in one place.
 
-    Require a file before running for the first time
-
-      $ fnxc repl -rstd/io
-      $ fnxc repl --require file.nx
-
-  -[-R]equire-path <path>
-
-    Add a path to look up on requiring
-
-      $ fnxc repl -R.shard -rstd/io
-
-  -[-I]import-path <path> Add an import lookup path
-  -[-l]ib <libname>       Add a library to link
-  -[-L]ib-path <path>     Add a library lookup path
-
-  -[-O]ptimize <level>
-
-    Enable JIT optimizations from 0 (default) to 2
-
-      $ fnxc repl -O1
-```
+To compile the documentation in HTML, you may use the following command:
 
 ```console
-$ fnxc run -h
-Run the program in JIT compilation mode
-
-Usage:
-  $ fnxc <file> [options]
-  $ fnxc run <file> [options]
-
-Options:
-  -[-h]elp  Display this help
-
-
+$ asciidoctor index.adoc -oindex.html
 ```
+
+And then open the resulting `index.html` file.
+
+Please do not include build artifacts into the repository!

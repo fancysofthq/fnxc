@@ -3,13 +3,7 @@
 
 namespace Onyx {
 namespace App {
-// The canonical formatter application.
-// It formats an input file atomically.
-//
-// ```
-// onyxc format main.nx -o main.formatted.nx
-// onyxc format main.nx --rewrite
-// ```
+// An Onyx source code formatter application.
 class FMT : Shared::BC {
 public:
   FMT(filesystem::path input,

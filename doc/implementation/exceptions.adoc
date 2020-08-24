@@ -1,0 +1,79 @@
+= Exceptions
+
+The Standard states that a program is compiled as a whole (including built-in API), and there is no concept of shared Onyx libraries.
+It is therfore possible for a compiler to determine a set of possibly thrown exceptions for any call, which in turn gives more freedom to a compiler on implementing exception handling.
+
+It would be totally legit to implement exception handling using some system-dependent techniques, such as https://en.wikipedia.org/wiki/Microsoft-specific_exception_handling_mechanisms#Structured_Exception_Handling[SEH].
+But there is also an opportunity to implement "zero-cost" exception handling.
+
+In FNXC, if a function may throw, then it transparently returns a switch determing if an exception has been thrown, and a union containing both potentially thrown objects and the returned value.
+Of course, it requires some CPU ticks to check the result before proceeding, but it's much more lightweight than traditional stack unwinding.
+
+Thanks to the `try with` feature, a custom backtrace object may be passed to a function.
+Upon throwing, the backtrace object would be called with the `.push(location)` method to push the current frame location into; and if there is no backtrace, then no pushing would happen.
+
+This allows to #create programs with exception flow# in Onyx, with just a tiny performance penalty.
+
+== Higher-level implementation
+
+Consider the following example:
+
+====
+```nx
+# For the sake of example, consider
+# both `Std@rand?()` and `Std.<<()`
+# `nothrow` and `threadsafe`.
+#
+
+require "std"
+
+def foo : SBin32 throws String<UCS, 5>
+  if Std@rand?()
+    throw "Boom!"
+  else
+    return 42
+  end
+end
+
+# To demonstrate the required traits.
+distinct alias Backtrace<Size: Z> = Stack<Location, Z>
+  derive Pushable<Location>;
+  derive Poppable<Location>;
+  derive Enumerable<Location>;
+end
+
+@[Std::Entry]
+# An exported function is
+# always implicitly `nothrow`.
+export void main() {
+  final bt = Stack<Location, 32>()
+
+  try with &bt
+    Std.out << foo()
+  catch |e|
+    Std.out << "Errored at" << Std::NL
+    bt->.each() -> Std.out << & << Std::NL
+  end
+}
+```
+====
+
+Instead of raw `SBin32`, `foo` shall transparently return some `Variant<String<UCS, 5>, SBin32>`.
+The compiler shall then check if the variant contains a error.
+If it does, a matching `catch` is called with the error object extracted from the variant.
+If there is no matching `catch`, the exception is propagated upwards.
+If there is no error, then the actual return value is extracted from the variant.
+
+Note that if the function returns `String<UCS, 5>` instead (e.g. `return "Hello"`), the compiler shall still be able to determine if the result if errornous.
+The result would implicitly be some `Variant<String<UCS, 5>, String<UCS, 5>>`; the variant shall not be flattened to a single value.
+
+If a function is throwing and is inferred to be ever present in a call stack with a backtrace of type `T`, then it transparently accepts as `__backtrace : T*cw` argument, which is not directly accessible within the body.
+
+NOTE: To access the backtrace, `@has_backtrace?()` and `@backtrace()` macros may be used.
+
+NOTE: A `Location` struct is comprised of `file : String*sr`, `row : UBin32` and `col : UBin32` fields.
+
+Upon throwing, a function calls a `.push(location)` method implementation on the backtrace, passing the current source code location constant as the argument.
+
+A single function may theoretically accept backtraces of multiple types, hence a union thoseof with a switch, e.g. `++__++backtrace : Union<BacktraceA, BacktraceB>*cw, ++__++backtrace_switch : UBin1`.
+It is trivial to call a `.push()` method on the actual type then.

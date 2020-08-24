@@ -1,6 +1,6 @@
 namespace Onyx {
 namespace App {
-// The canonical Read-Eval-Print-Loop implementation.
+// The Read-Eval-Print-Loop application.
 class REPL {
 public:
   REPL(unsigned char workers);
