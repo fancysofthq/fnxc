@@ -13,8 +13,12 @@ namespace fs = filesystem;
 #include "./cpp/header/utils/log.hpp"
 
 struct StandardError : std::exception {
+  const string message;
+
   StandardError(const string message) :
-      std::exception(message.c_str()) {}
+      std::exception(), message(message) {}
+
+  const char *what() const override { return message.c_str(); }
 };
 
 Verbosity verbosity = Trace;
