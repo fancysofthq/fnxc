@@ -33,12 +33,16 @@ find_path(SQLITE3_INCLUDE_DIR sqlite3.h)
 include_directories(${SQLITE3_INCLUDE_DIR})
 
 find_package(SQLiteCpp 3 CONFIG REQUIRED)
-find_package(doctest 2.4 CONFIG REQUIRED)
-find_package(Lua 5.3 REQUIRED)
+message(STATUS "Using SQLiteCpp v${SQLiteCpp_VERSION}")
 
-find_package(LLVM 10.0 REQUIRED CONFIG)
-message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
-message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+find_package(doctest 2.4 CONFIG REQUIRED)
+message(STATUS "Using doctest v${doctest_VERSION}")
+
+find_package(Lua 5.3 REQUIRED)
+message(STATUS "Using Lua v${Lua_VERSION}") # FIX: Determine version
+
+find_package(LLVM 10 REQUIRED CONFIG)
+message(STATUS "Using LLVM v${LLVM_VERSION}")
 include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
