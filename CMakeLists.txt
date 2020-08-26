@@ -46,6 +46,11 @@ message(STATUS "Using LLVM v${LLVM_VERSION}")
 include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
+find_package(CLang 10 REQUIRED CONFIG)
+message(STATUS "Using CLang v${CLang_VERSION}")
+include_directories(${CLANG_INCLUDE_DIRS})
+link_directories(${CLANG_LIB_DIR})
+
 # Tests
 #
 
