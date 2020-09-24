@@ -1,4 +1,4 @@
-fnxc = {
+return {
   llvm_type = function (type)
     if type.has_alias("FBin32") then
       return "float"

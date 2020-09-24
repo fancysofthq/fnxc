@@ -1,0 +1,14 @@
+# This is a configuration file for lua-formatter.
+# See https://github.com/Koihik/LuaFormatter/blob/master/docs/Style-Config.md.
+#
+# In addition to that, the project follows
+# https://github.com/luarocks/lua-style-guide.
+#
+column_limit: 69
+indent_width: 2
+continuation_indent_width: 2
+keep_simple_control_block_one_line: false
+keep_simple_function_one_line: false
+align_args: false
+align_parameter: false
+align_table_field: false

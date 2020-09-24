@@ -1,7 +1,9 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest/doctest.h"
 
-#include "../../../src/cpp/source/utils/fnv1a.cpp"
+#include "../../../src/cpp/utils/fnv1a.cpp"
+
+using namespace FNX::Utils;
 
 TEST_CASE("testing FNV1a implementations") {
   CHECK(FNV1a::hash32("hello", 6) == 43209009);

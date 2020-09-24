@@ -1,7 +1,9 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest/doctest.h"
 
-#include "../../../src/cpp/source/utils/utf8.cpp"
+#include "../../../src/cpp/utils/utf8.cpp"
+
+using namespace FNX::Utils;
 
 TEST_CASE("UTF8::codepoint_byte_size") {
   CHECK(UTF8::codepoint_byte_size('\0') == 1);
@@ -21,20 +23,20 @@ TEST_CASE("UTF8::size_from_leading_byte") {
   CHECK(UTF8::size_from_leading_byte(240u) == 4); // 𝄞 = f0 9d 84 9e
 }
 
-TEST_CASE("UTF8::to_codepoint") {
-  CHECK(UTF8::to_codepoint("\0") == 0);
-  CHECK(UTF8::to_codepoint("A") == 65);
-  CHECK(UTF8::to_codepoint("ö") == 246);
-  CHECK(UTF8::to_codepoint("Ж") == 1046);
-  CHECK(UTF8::to_codepoint("€") == 8364);
-  CHECK(UTF8::to_codepoint("𝄞") == 119070);
+TEST_CASE("UTF8::to_codeunits") {
+  CHECK(std::string((char *)UTF8::to_codeunits(0)) == "\0");
+  CHECK(std::string((char *)UTF8::to_codeunits(65)) == "A");
+  CHECK(std::string((char *)UTF8::to_codeunits(246)) == "ö");
+  CHECK(std::string((char *)UTF8::to_codeunits(1046)) == "Ж");
+  CHECK(std::string((char *)UTF8::to_codeunits(8364)) == "€");
+  CHECK(std::string((char *)UTF8::to_codeunits(119070)) == "𝄞");
 }
 
-TEST_CASE("UTF8::to_codeunits") {
-  CHECK(std::string(UTF8::to_codeunits(0)) == "\0");
-  CHECK(std::string(UTF8::to_codeunits(65)) == "A");
-  CHECK(std::string(UTF8::to_codeunits(246)) == "ö");
-  CHECK(std::string(UTF8::to_codeunits(1046)) == "Ж");
-  CHECK(std::string(UTF8::to_codeunits(8364)) == "€");
-  CHECK(std::string(UTF8::to_codeunits(119070)) == "𝄞");
+TEST_CASE("UTF8::to_codepoint") {
+  CHECK(UTF8::to_codepoint(u8"\0") == 0);
+  CHECK(UTF8::to_codepoint(u8"A") == 65);
+  CHECK(UTF8::to_codepoint(u8"ö") == 246);
+  CHECK(UTF8::to_codepoint(u8"Ж") == 1046);
+  CHECK(UTF8::to_codepoint(u8"€") == 8364);
+  CHECK(UTF8::to_codepoint(u8"𝄞") == 119070);
 }

@@ -1,0 +1,20 @@
+= NXIR
+
+TODO: NXIR is to be standardized.
+
+_NXIR_ stays for the _Onyx Intermediate Representation_.
+
+A source file containing an implementation of a procedure or type specialization, or a definition of a static value, or a declaration of an external function, becomes an NXIR module.
+
+An NXIR module, akin to an LLIR module, contains type, function and variable definitions, as well as function and variable declarations.
+
+Annotations are also preserved in NXIR.
+LLIR generator makes use of some built-in annotations, e.g. `@[NeverInline]`.
+A linker, for example, may also make use of some `@[Entry]`-annotated function or a `@[Section]`-annotated variable.
+
+NXIR does not contain neither generators nor macros.
+
+NXIR does not contain information of whether an `Undef` function argument is poly- or mono-morphic.
+They are said to have undefined morphism.
+
+An NXIR module is then translated to a xref:llir[LLIR] module.

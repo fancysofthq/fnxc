@@ -1,7 +1,9 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest/doctest.h"
 
-#include "../../../src/cpp/source/utils/bits.cpp"
+#include "../../../src/cpp/utils/bits.cpp"
+
+using namespace FNX::Utils;
 
 TEST_CASE("testing `bits`") {
   uint8_t a = 'A';

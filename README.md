@@ -2,11 +2,17 @@
 
 An Onyx programming language compiler implementation.
 
+## Current state
+
+Laying out the skeleton of the compiler.
+It does not work by any means yet.
+Check the documentation at `/doc`!
+
 ## About
 
 The [Fancy Onyx Compiler](https://fnxc.fancysoft.xyz) (FNXC) is an Onyx programming language compiler implementation built in C++ on top of [LLVM](http://llvm.org/).
 
-Target ISAs supported by FNXC are `i386`, `amd64`, `arm7` and `arm8`.
+Target ISAs supported by FNXC are `amd64`, `arm7` and `arm8`.
 
 The `fnxc` binary implements the Onyx Compiler Interface standard (the `build` and `doc` commands), and does not peform neither linking nor dependency management.
 For a fully-featured building environment, see [Fancy Onyx](https://fnx.fancysoft.xyz), which may use FNXC as a dependency.

@@ -1,9 +1,0 @@
-= Implementation
-
-This chapter describes implementation details of FNXC.
-
-include::./implementation/interoperability.adoc[leveloffset=+1]
-
-include::./implementation/exceptions.adoc[leveloffset=+1]
-
-include::./implementation/caching.adoc[leveloffset=+1]

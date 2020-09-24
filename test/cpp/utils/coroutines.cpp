@@ -1,9 +1,9 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest/doctest.h"
 
-#include "../../../src/cpp/source/utils/coroutines.cpp"
+#include "../../../src/cpp/utils/coroutines.cpp"
 
-using namespace co;
+using namespace FNX::Utils;
 
 generator<int> _generator() {
   co_yield(42);
@@ -48,7 +48,7 @@ int sync_switch = 0;
 
 // NOTE: `sync` clashes with `unistd.h`
 // on POSIX platforms.
-co::sync<int> _sync() {
+sync<int> _sync() {
   co_return(42);
   sync_switch = 1;
 }

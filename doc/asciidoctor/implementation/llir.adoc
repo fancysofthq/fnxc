@@ -1,0 +1,37 @@
+= LLIR
+
+LLIR stays for LLVM IR.
+
+An LLIR module is generated from an NXIR module.
+
+Some standard built-in annotations are respected by the LLIR generator.
+
+.Standard annotations respected by LLIR codegen
+[cols="1m, 1", options="header"]
+|===
+| Annotation(s) | Description
+
+| @[AlwaysInline]
+| Emits the `alwaysinline` function attribute
+
+| @[NeverInline]
+| Emits the `noinline` function attribute
+|===
+
+In addition to that, FNX defines a number of FNX-specific annotations to reflect LLVM features.
+
+.Non-standard annotations respected by LLIR codegen
+[cols="1m, 1", options="header"]
+|===
+| Annotation(s) | Description
+
+| @[FNX::LLVM::AlignStack<N>]
+| Emits the `alignstack(<n>)` function attribute
+|===
+
+Prior to generating LLIR, generic NXIR function arguments become poly- or mono-morphic based on the current optimization settings.
+
+Once all LLIR modules are generated, they are linked together by the embedded LLVM linker in order to build binary in the target format -- an executable or a library.
+LTO (link-time optimization) is defined by the current optimization settings.
+
+TODO: Define performed LLIR optimizations.

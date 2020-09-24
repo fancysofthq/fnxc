@@ -1,0 +1,212 @@
+= MNX
+
+MNX is the macro language for Onyx, transpiled to Lua.
+
+NOTE: MNX is yet to-be-standardized and to-be-implemented.
+
+== Motivation
+
+Onyx implies safety guarantees, but macros may be evaluated from multiple threads with unprotected simultaneous access to shared data, which imposes potential data races.
+
+Also, Lua lacks some syntactic sugar, such as OOP and certain operators.
+
+To partially deal with that, MNX (from "Macro Onyx") is used in macros instead of Lua.
+It still does not give any guarantees, but makes it easier to write safer code.
+
+== Features
+
+MNX transpiles to Lua and thus allows to make use of existing Lua code.
+
+=== Synchronized global data access
+
+Variables are declared implicitly `local`.
+
+Global variables have `$` preceding their names.
+
+Access to global variables should be synchronized using the `@sync` function from the xref:_onyx_context[].
+
+====
+```mnx
+foo = 42 -- Local variable access
+
+-- Synchronized global variable access
+@sync => $bar = 43
+```
+
+Roughly transpiles into:
+
+```lua
+local foo = 42
+
+nx.sync(function () do
+  bar = 43
+end)
+```
+====
+
+=== Classes
+
+Simple Lua https://www.lua.org/pil/16.1.html[class] functionality wrapping.
+
+TODO: Allow inheritance with field default values and function overrides, e.g. `class Child < Parent`.
+
+====
+```mnx
+class Account
+  balance = 0
+
+  function deposit(amount)
+    -- See for `+=` below
+    self.balance += deposit
+  end
+end
+
+acc = Account:new()
+acc:deposit(100)
+
+print(acc.balance) -- => 100
+```
+
+Roughly transpiles into:
+
+```lua
+local Account = {balance = 0}
+
+function Account:new(o)
+  if o then
+    for k, v in pairs(o) do
+      if k ~= "balance" then
+        error("Invalid field " .. k)
+      end
+    end
+  else
+    o = {}
+  end
+
+  setmetatable(o, self)
+  self.__index = self
+
+  self.__pairs = function()
+    -- ...
+  end
+
+  self.__ipairs = function()
+    -- ...
+  end
+
+  return o
+end
+
+function Account:deposit(v)
+  self.balance = self.balance + v
+end
+
+local acc = Account:new()
+acc:deposit(100)
+
+print(acc.balance)
+```
+====
+
+=== Immutable tables
+
+Tables may have `const` modifier, which makes them immutable.
+An attempt to mutate an immutable table leads to a macro error.
+See http://lua-users.org/wiki/ReadOnlyTables[Read Only Tables].
+
+====
+```mnx
+t = const {a = 42}
+t.a = 43 -- Would error
+```
+
+Roughly transpiles to:
+
+```lua
+local t = __builtin__.readonly({a = 42})
+t.a = 43
+```
+====
+
+=== Lambdas
+
+The `=> |args| do call(arg) end` syntax sugar transpiles to `function (args) do call(arg) end`.
+
+If a lambda has zero arity, `||` may be omitted, e.g. `=> do call() end`
+
+If a lambda itself is a single argument, then wrapping parentheses may be omitted, e.g. `@sync => do call() end`.
+
+One-line lambdas may omit `do end`, e.g. `@sync => call()`
+
+=== Case
+
+A `case` statement simply transpiles to a list of `if` statements.
+The switched expression is evaluated only once.
+
+====
+```mnx
+case foo
+when 1 then bar()
+when 2 then baz()
+else qux()
+end
+```
+
+```lua
+local __temp = foo
+if __temp == 1 then bar()
+elsif __temp == 2 then baz()
+else qux()
+end
+```
+====
+
+=== Onyx context
+
+The Onyx global state may be accessed using the `@` notation.
+Basically, `@` transpiles to a simple access to the global `nx` table, e.g. `@c.id()` => `nx.c.id()`.
+It's up to a built-in function to be synchronous or a table to be immutable.
+
+=== Operators
+
+MNX includes some QoL operator shortcuts:
+
+|===
+| Operator | Transpiles to
+
+| `A && B`
+| `A and B`
+
+| `A || B`
+| `A or B`
+
+| `!A`
+| `not A`
+
+| `A += B`
+| `A = A + B`
+
+| `A -= B`
+| `A = A - B`
+
+| `A *= B`
+| `A = A * B`
+
+| `A /= B`
+| `A = A / B`
+
+| `A %= B`
+| `A = A % B`
+
+| `A ^= B`
+| `A = A ^ B`
+
+| `A ..= B`
+| `A = A .. B`
+
+| `A ? B : C`
+| `A and B or C`
+
+| `A ?: B`
+| `A and A or B`, where `A` evaluates only once
+|===

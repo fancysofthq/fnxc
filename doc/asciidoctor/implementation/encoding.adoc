@@ -1,0 +1,24 @@
+= Encoding
+
+At the moment, an input file shall contain US-ASCII characters only, excluding char and string literals and explicit identifiers.
+A non-US-ASCII character met outside of these boundaries is considered a syntactic error.
+
+A source file shall be encoded either in US-ASCII or UTF-8 without BOM.
+
+Char literals are in UCS charset only, and string literals are in UTF-8 encoding only.
+
+== Future work
+
+In the future:
+
+* Identifiers may be in Unicode (see https://unicode.org/reports/tr31/).
+
+* Operators may support Unicode characters with `Sm` category (Math Symbol).
+
+* Char literals may support charset other than UCS.
+
+* String literals may support encoding other than UTF-8.
+
+* Linebreak characters are lexed in accordance to https://www.unicode.org/reports/tr14/.
+
+* `Zs`-category Unicode characters are accepted as white space characters.

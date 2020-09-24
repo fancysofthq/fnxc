@@ -1,0 +1,61 @@
+= AOT
+
+The AOT (Ahead Of Time) compilation application comprises the following compilation stages:
+
+. The global AST is built:
+
+.. A source file is lexed, yielding tokens.
+
+.. Yielded tokens are parsed into local AST with read-only access to the global AST.
+
+.. Once a source file is translated, its local AST is merged with the global AST in a thread-safe manner.
+
+.. The process is repeated for all source files.
+
+. Exported functions are evaluated to build struct and function specializations in the NXIR of the resulting program.
+Delayed macros are evaluated during this stage, implying lexing, parsing and merging the resulting AST into the target AST node.
+
+. Once all of the exported functions are specialized, final macros (if any) are evaluated, and their contents is injected into the NXIR.
+Note that final macros are prohibited to change a type's memory layout, a function return value etc.
+
+. NXIR modules are translated to LLIR modules.
+
+. The resulting object files are linked with LTO enabled and packed into a target binary, which may be an executable or a library.
+
+Multiple entry files are enqueued for translation simultaneously.
+That said, the order of entry file arguments does not matter.
+
+If a source file contains a `require` or an `import` statement, a group of those uninterrupted by any other non-comment statements (called a _dependee group_) is enqueued simultaneously.
+The containing file translation process halts until the whole group is translated.
+
+====
+
+```nx
+# This is a dependee group
+# comprising two dependees
+require "foo.nx"
+import "bar.h"
+
+# A statement other than `require` or
+# `import` breaks the require group.
+namespace Foo;
+
+# This is a dependee group
+# comprising a single dependee
+require "bar.nx"
+
+namespace Bar;
+```
+
+. The containing file enqueues and waits until both `"foo.nx"` and `"bar.h"` are translated.
+
+. The containing file translation continues until another dependee group is met.
+
+. The containing file enqueues and waits until `"bar.nx"` is translated.
+
+. The translation of the containing file continues.
+
+====
+
+Enqueuing the same file has no effect.
+Enqueued files are always translated in FIFO manner.

@@ -1,0 +1,37 @@
+= Interoperability
+
+// TODO: Remove `extern` from the standard, it does not make sense.
+
+FNX uses `libclang` to implement i14y with C.
+
+There is the global C AST, containing all the imported and exported C entity declarations and definitions.
+It is implemented as `std::unordered_map` with identifiers as hash keys.
+
+C AST may be referenced from Onyx source code and macros, and C macros.
+
+C macros evaluated in Onyx context are evaluated by `libclang`, and then parsed to extract useful information.
+For example, `${TEN(3)}` may evaluate to `1000ul`~C~, and shall be processed prior to inserting into Onyx code.
+
+== Import
+
+An imported C header may be processed multiple times.
+Non-standard `#pragma` directives are not supported by FNX, leaving https://en.wikipedia.org/wiki/Include_guard[#include guards] mandatory.
+
+// TODO: Can imports be parallelized?
+
+== Export
+
+Once the `export` keyword is met, FNX hands lexing to `libclang`.
+Determined by the kind of the exported entity, the C-parsing process ends upon various conditions:
+
+* Parsing of an exported function definition ends with an opening curly bracket (`{`).
+It then expects a closing curly bracket (`}`) in the end of the function body.
+
+* Parsing of an exported function declaration, a struct, union, typedef or a enum declaration or definition ends with a terminating semicolon.
+
+* Parsing of an exported C preprocessor directive ends with a newline unless escaped.
+
+// TODO: It would be easy if `libclang` supported step-by-step parsing.
+// Otherwise, we shall rely on errors it throws once it encounters Onyx code.
+
+Exporting from different files would not imply data races, as `std::unordered_map` is thread-safe on insertion.

@@ -1,0 +1,20 @@
+= Lexer
+
+Lexer parses source code and yields resulting tokens to xref:parser[] or xref:formatter[].
+
+Lexer does not evaluate neither Onyx nor C macros.
+
+Macros are parsed as text.
+For example, `{% foo(bar) %}` and `${FOO(bar)}` are single tokens with according token kind information, e.g. a C macro.
+
+A complex (i.e. nested) Onyx macro is a simple sequence of tokens.
+It is a token consumer's responsibility to detect complex macros and treat nested tokens accordingly.
+
+Yielded tokens shall contain enough information to reproduce the source file *exactly*.
+
+Literals are destructed in Lexer, e.g. `42.17f64` is known to have `42` as a whole part, `17` as a fractional part, and `FBin64` as a restricted type.
+This is made to avoid repetitive parsing of a literal in a token consumer.
+
+Yielded tokens convey as much context as possible.
+For example, `++<<=++` is a well-known operator hence named `PushAssignment` not `DoubleEqualArrow`.
+On the other side, `*` is context-dependent and thus named simply `Asterisk`.

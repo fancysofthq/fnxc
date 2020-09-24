@@ -1,0 +1,11 @@
+= AST
+
+AST stays for Abstract Syntax Tree.
+It comprises parsed source code in a tree form after immediate macros evaluated.
+
+It is possible to re-create source code from AST, as it preserves comprising tokens.
+Given that comments are also preserved, AST may be used for documentation generation.
+
+Parsing a physical file or virtual code block builds _local AST_.
+Once the parsing is complete, the local AST is merged with the _global AST_.
+Note that the source code may be nested, e.g. a macro within a function, so the AST merge point shall be changed accordingly.

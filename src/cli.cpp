@@ -4,13 +4,12 @@
 #include <regex>
 #include <sqlite3.h>
 #include <string>
-#include <thread>
 
 using namespace std;
 namespace fs = filesystem;
 
-// #include "./cpp/header/app/aot.hpp"
-#include "./cpp/header/utils/log.hpp"
+#include "../include/fnx/app/aot.hpp"
+#include "../include/fnx/utils/logging.hpp"
 
 struct StandardError : std::exception {
   const string message;
@@ -21,19 +20,13 @@ struct StandardError : std::exception {
   const char *what() const override { return message.c_str(); }
 };
 
+// TODO: Variable verbosity
 Verbosity verbosity = Trace;
 
-// Commands:
+// Implemented commands:
 //
-//   // * nxc               — run the REPL
-//   // * nxc repl          — ditto
-//   // * nxc [file]        — run [file] in JIT mode
-//   // * nxc run [file]    — ditto
-//   * nxc build [file]  — build [file] in AOT mode
-//   // * nxc api [file]    — generate API for [file]
-//   // * nxc format [file] — format an Onyx source file
+//   * fnxc build <file>  — build <file> in AOT mode
 //
-// TODO: Rename `api` to `doc`?
 int main(int argc, char *argv[]) {
   locale::global(locale("en_US.UTF-8"));
 
@@ -42,7 +35,7 @@ int main(int argc, char *argv[]) {
 
   try {
     if (argc == 1)
-      // `$ nxc` implies `$ nxc repl`
+      // `$ fnxc` implies `$ fnxc repl`
       throw StandardError("REPL is not implemented yet");
 
     string arg = string(argv[1]);
@@ -50,15 +43,14 @@ int main(int argc, char *argv[]) {
     // The `build` command builds an Onyx program in AOT mode.
     //
     // ```sh
-    // $ onyxc build -imain.nx -o./bin/main -j3
+    // $ fnxc build -imain.nx -o./bin/main -j3
     // ```
     if (arg == "build") {
       fs::path input_path;
       fs::path output_path;
 
       // The number of threads to utilize.
-      // Platform maximum by default.
-      unsigned short jobs_count = thread::hardware_concurrency();
+      unsigned short jobs_count = 1;
 
       for (int i = 2; i < argc; i++) {
         arg = string(argv[i]);
@@ -103,11 +95,16 @@ int main(int argc, char *argv[]) {
             if (output_path.empty())
               throw StandardError("Output path shall not be empty");
           }
-        } else if (regex_match(arg, sm, regex("^-j(\\d+)"))) {
-          jobs_count = std::stoi(sm[1]);
+        } else if (regex_match(arg, sm, regex("^-j\\s*(\\d+)?"))) {
+          if (sm[1].length() > 0) {
+            jobs_count = std::stoi(sm[1]);
 
-          if (!(jobs_count > 0))
-            throw StandardError("Expected jobs count to be > 0");
+            if (!(jobs_count > 0))
+              throw StandardError("Expected jobs count to be > 0");
+          } else {
+            // W/o value, set the jobs count to maximum possible
+            jobs_count = std::thread::hardware_concurrency();
+          }
         }
       }
 
@@ -136,21 +133,21 @@ int main(int argc, char *argv[]) {
   } catch (StandardError &e) {
     cerr << "Error: " << e.what();
     exit(EXIT_FAILURE);
-    // } catch (Onyx::Compiler::Panic &p) {
-    //   cerr << "Panic! " << p.what() << "\n";
+  } catch (Onyx::Compiler::Panic &p) {
+    cerr << "Panic! " << p.what() << "\n";
 
-    //   while (!p.backtrace.empty()) {
-    //     auto loc = p.backtrace.top();
+    while (!p.backtrace.empty()) {
+      auto loc = p.backtrace.top();
 
-    //     cerr << "\t";
-    //     cerr << loc.unit.get()->path;
-    //     cerr << ":" << loc.begin.row << ":" << loc.begin.col;
-    //     cerr << "\n";
+      cerr << "\t";
+      cerr << loc.unit.get()->path;
+      cerr << ":" << loc.begin.row << ":" << loc.begin.col;
+      cerr << "\n";
 
-    //     p.backtrace.pop();
-    //   }
+      p.backtrace.pop();
+    }
 
-    //   exit(EXIT_FAILURE);
+    exit(EXIT_FAILURE);
   } catch (...) {
     cout << "[BUG] Unhandled exception!\n";
     exit(EXIT_FAILURE);
