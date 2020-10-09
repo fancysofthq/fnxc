@@ -1,0 +1,279 @@
+= Caching
+
+Caching allows for faster successive compilations.
+
+Cache invalidation::
+A file's CST is absent or considered invalid.
+The file therefore shall be read from scratch.
+
+Partial cache invalidation::
+A file's CST is cached, and it (the CST) shall be evaluated again.
+
+== Caching algorithm overview
+
+. If a source file does not have a basic cache file, it is deemed to be not cached yet and thus need full (re)parsing.
+
+. A file is checked for physical changes using the operating system facilities, e.g. by comparing the last modification time stored in the basic cache file.
+If the file has changed, its cache is considered invalid.
+See xref:_basic_caching[].
+
+. Source files the file depends on are recursively checked for cache validity (jump to the step 1 of the algorithm for each dependency).
+A dependency cache invalidation triggers partial cache invalidation of all its dependants.
+See more in xref:_dependency_caching[].
+
+// TODO: Regarding C, is it the vendor option only?
+. If there is an accompanying `.target.fnxcache.bin` file, its contents is compared with current target settings, including ISA and C vendor options.
+The file would only contains options ever referenced from a macro, e.g. `{% if nx.target.isa.id == "amd64" then %}` leads to some `isa.id` entry.
+In case of invalidation, the file is rebuilt.
+
+. If there is an accompanying `.macro.fnxcache.bin` file, the stored function is evaluated to determine cache validity.
+In case of invalidation, the file is rebuilt.
+See more in xref:_onyx_macros_caching[].
+
+. If there is an accompanying `.cmacro.fnxcache.bin` file, C macro values contained in it are compared to the current ones.
+In case of a change, the file is rebuilt.
+
+. If there is an accompanying `.env.fnxcache.bin` file, evironment variable values contained in it are compared to the current ones.
+In case of a change, the file is rebuilt.
+
+. The file is considered cached.
+Its accompanying `.llbc` module file is to be reused if exists.
+
+If there is an accompanying `.spec.fnxcache.bin` file, type and function specializations contained in it are recorded for future reference.
+Later on, if the combination of specializations this file contains changes, the file is to be rebuilt.
+
+== Basic caching
+
+A basic caching file contents is system-dependent.
+Basically, it shall contain the latest modification time.
+
+.example.nx.basic.fnxcache.bin
+```
+<(UInt64) Latest modification time in seconds>
+```
+
+== Dependency caching
+
+A cache dependencies list file has the following format:
+
+.example.nx.nx.dep.fnxcache.bin
+```
+<(UInt32) Number of -R flag values>
+[<(UInt32) Path length><(Bytes) Path>]
+
+<(UInt32) Number of -I flag values>
+[<(UInt32) Path length><(Bytes) Path>]
+
+<(UInt32) Number of -M flag values>
+[<(UInt32) Path length><(Bytes) Path>]
+
+[(
+  <(Enum) "Onyx require batch">
+  <(UInt32) Batch size>
+  [<(UInt32) Path length><(Bytes) Path>]
+) | (
+  <(Enum) "C import path">
+  <(UInt32) Batch size>
+  [<(UInt32) Path length><(Bytes) Path>]
+) | (
+  <(Enum) "Lua require path">
+  <(UInt32) Path length><(Bytes) Path>
+)]
+```
+
+Where dependencies are in the exact order as in the source file.
+Batch dependencies are ought to be processed in parallel.
+
+Even if neither of the flags nor any dependency path did not change, a user may, for example, create a new file in the filesystem which would have higher precedence in accordance to the passed flags, which in turn would lead to cache invalidation.
+
+For C and Lua files, only an according dependency type is present.
+
+For example, C:
+
+.example.h.c.dep.fnxcache.bin
+```
+<(UInt32) Number of -I flag values>
+[<(UInt32) Path length><(Bytes) Path>]
+
+<(UInt32) Number of includes>
+[
+  <(Bool) Is system?>
+  <(UInt32) Path length>
+  <(Bytes) Path>
+]
+```
+
+Lua:
+
+.example.lua.lua.dep.fnxcache.bin
+```
+<(UInt32) Number of -M flag values>
+[<(UInt32) Path length><(Bytes) Path>]
+
+<(UInt32) Number of requires>
+[
+  <(UInt32) Path length>
+  <(Bytes) Path>
+]
+```
+
+If a dependency changed or its cache is invalidated, *all* of its dependants shall be invalidated as well.
+
+== Onyx macros caching
+
+If an Onyx macro contained in a source file calls an impure function, such as accessing an environment variable or requring a C library, even somewhere deep in the callstack, the containing file is marked as not eligible for caching.
+Read more about impure function calls detection below.
+
+An Onyx file could define an `nx.file.cache` function.
+The function is evaluated at the very end of AST compilation of the file.
+The function's precompiled contents and the value it returned are put into the according `fnx.cache.macro.bin` file.
+
+Upon successive compilations, the function is called again with the cached value as an argument.
+The result is compared with the cached value byte-by-byte.
+If the comparison fails, the file is to be re-compiled.
+
+As the file is re-compiled, the process repeats and the function is evaluated again at the end of the AST compilation.
+The `.macro.fnxcache.bin` file is re-generated with the new cache value.
+This effectively means that the function would be evaluated twice in case if it did not change.
+But it could've changed, though, so it is a fair price.
+
+Note that the source file contents did not change, therefore its cached CST, stored in an according `.cst.fnxcache.bin` file, could be reused.
+
+====
+.main.nx
+```nx
+{%
+  nx.file.cache = function ()
+    local hasher = require "hash_file"
+    return hasher.hash("my_path.txt")
+  end
+%}
+```
+
+.macro.fnxcache.bin
+```
+79·<compiled function>·1·<string>·32·554a4c8a4e8b407bc152e2ba3f40230c
+```
+====
+
+== C macros caching
+
+An imported C header file, an exported block, a C constant expression or a C macro access from Onyx macro could reference an undefined C preprocessor macro, which may be environment- or vendor-dependent macro, such as `__DATE__`, `__GNUC__` or `FOO` set with `-DFOO`.
+Such macros are put into the `.cmacro.fnxcache.bin` file.
+
+If a macro has explicit definition anywhere in the source files, then it is not eligible for putting it into the `.cmacro.fnxcache.bin` file.
+Instead, a change in a file containing the macro definition would trigger dependants re-building (see above).
+
+====
+.cmacro.fnxcache.bin
+```
+8·__GNUC__·2·10·8·__DATE__·13·"Feb 12 1996"·3·FOO·3·bar
+```
+====
+
+== Environment variables caching
+
+Environment variables accessed from Onyx macros (anywhere in the callstack) are stored in a `.env.fnxcache.bin` file.
+
+====
+.env.fnxcache.bin
+```
+3·FOO·6·barbaz
+```
+====
+
+An Onyx source file's CST tree is saved to a `.cst.fnxcache.bin` file.
+
+== Cache location
+
+By default, FNX cache is stored in a `.fnxcache` directory relative to the working directory.
+
+It is possible to redefine the cache directory using the `-[-C]ache-dir` option.
+It may be used to specify distinct cache folders for different environments, e.g. `-C.fnxcache/amd64-linux`.
+
+== Type dependency
+
+TODO: Track usage of a type, build a graph.
+Track function argument restrictions and return types.
+
+== Macro idempotency
+
+TODO: It's better to re-compile the file rather than skip a potential non-idempotency.
+
+By default, a file evaluating *any* macro code is marked as a non-cacheable.
+
+Caching may be enabled back for a file by setting a custom `nx.file.fnxcache(value)` macro function.
+
+After parsing a file having an `nx.file.fnxcache(value)` function set, this function is called.
+The compiled function code and the retured value are saved in the cache.
+
+Upon subsequent translations, the function code is evaluated and called with the current cache value prior to parsing the file.
+If the returned value differs from the current cache value, the file is invalidated and its cache is removed.
+Otherwise, the file contents is read from the cache.
+
+For example:
+
+====
+```nx
+{%
+  -- The file is somehow dependent
+  -- on the `myfile` contents.
+  io.read("myfile")
+%}
+
+{%
+  nx.file.fnxcache = function (old)
+    -- The `lfs` module shall be accessible
+    -- from the compilation context.
+    local lfs = require "lfs"
+
+    local new, err = lfs.attributes(
+      "myfile", 'modification')
+
+    if err then
+      error(err)
+    else
+      return new
+    end
+  end
+%}
+```
+====
+
+=== Future work
+
+The Standard could have defined a set of idempotent Lua behaviour.
+For example, a simple `for i = 0, 3 do nx.emit(i) end` loop clearly does not depend on outer context.
+
+However, the `nx.emit` function itself could potentially be altered to actually depend on some outer condition.
+This is not usually practical, but if it happens, then the file shall not be idempotent anymore.
+
+It is possible to track all calls with `debug.sethook(func, "c")` and analyze a called function to determine if it has been altered (from its source location, for example).
+
+With that in mind, it is possible to mark certain built-in functions idempotent, e.g. `math.abs(x)`.
+They usually have `[C]` source location, and if it's not, then it's a custom function (e.g. `math.myfunc`), and shall not be idempotent.
+
+However, throwing a debug hook on *every* call implies serious performance overhead.
+
+An alternative would be intercepting non-idempotent standard function calls only, for example:
+
+```lua
+local old_system_clock = system.clock
+
+function system.clock()
+  nx.file.idempotent = false
+  return system.clock()
+end
+```
+
+It is also theoretically possible to determine whether a required file is a C library.
+If it is so, then we mark the requiring file non-idempotent, as we don't know anything about the C library.
+So, a custom global `require` override is needed.
+
+This could work, but there is never a guarantee that an already overriden non-idempotent functions (i.e. `system.clock` and `require`) would not be overriden once again to remove the `nx.file.idempotent = false` line.
+So this is not reliable.
+
+However, macros are not safe by their nature, are they?
+We could thus transfer the responsibilty of guaranting the non-overriding of those special functions to an Onyx developer.
+
+In the worst scenario, a file with presumbaly non-idempotent macros (e.g. with a `system.clock()` call) would be always cached, ignoring the otherwise desired outer triggers.

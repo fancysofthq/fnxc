@@ -1,0 +1,7 @@
+find_package(CLang 10 REQUIRED CONFIG)
+message(STATUS "Found CLang v${CLang_VERSION}")
+message(VERBOSE "CLANG_INCLUDE_DIRS == ${CLANG_INCLUDE_DIRS}")
+message(VERBOSE "CLANG_LIB_DIR == ${CLANG_LIB_DIR}")
+find_path(CLANG_INCLUDE_DIRS clang-c/Index.h REQUIRED)
+include_directories(${CLANG_INCLUDE_DIRS})
+link_directories(${CLANG_LIB_DIR})

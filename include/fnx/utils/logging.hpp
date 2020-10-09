@@ -16,7 +16,7 @@ enum struct Verbosity {
   Trace,
 };
 
-extern Verbosity verbosity;
+Verbosity verbosity;
 
 #define DEF_LOGGING(LEVEL)                                          \
   std::ostream &LEVEL(std::string context = NULL);

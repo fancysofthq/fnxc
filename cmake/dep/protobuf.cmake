@@ -1,0 +1,32 @@
+find_package(PROTOBUF 3 REQUIRED CONFIG)
+
+message(STATUS "Found Protobuf v${PROTOBUF_VERSION}")
+message(VERBOSE "PROTOBUF_PROTOC_EXECUTABLE == ${PROTOBUF_PROTOC_EXECUTABLE}")
+message(VERBOSE "PROTOBUF_BINARY_DIR == ${PROTOBUF_BINARY_DIR}")
+message(VERBOSE "PROTOBUF_LIB_DIRS == ${PROTOBUF_LIB_DIRS}")
+message(VERBOSE "PROTOBUF_INCLUDE_DIRS == ${PROTOBUF_INCLUDE_DIRS}")
+
+find_path(PROTOBUF_INCLUDE_DIRS google/protobuf/message.h REQUIRED)
+link_directories(${PROTOBUF_LIB_DIRS})
+include_directories(${PROTOBUF_INCLUDE_DIRS})
+
+set(PROTOBUF_IMPORT_DIR ${CMAKE_SOURCE_DIR}/src/protobuf/proto)
+set(PROTOBUF_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/protobuf/proto)
+
+file(MAKE_DIRECTORY  ${PROTOBUF_BINARY_DIR}/gen/fnx/protobuf)
+set(PROTOBUF_GEN_DIR ${PROTOBUF_BINARY_DIR}/gen/fnx/protobuf)
+
+# So protos can be included as `#include "fnx/protobuf/my.h"`.
+set(PROTOBUF_GEN_INCLUDE_DIR ${PROTOBUF_BINARY_DIR}/gen)
+include_directories(${PROTOBUF_GEN_INCLUDE_DIR})
+
+add_custom_target(gen-protobufs
+  DEPENDS protoc
+  COMMAND ${CMAKE_COMMAND}
+  -DPROTOC_EXECUTABLE=${PROTOBUF_PROTOC_EXECUTABLE}
+  -DIMPORT_DIR=${PROTOBUF_IMPORT_DIR}
+  -DSOURCE_DIR=${PROTOBUF_SOURCE_DIR}
+  -DGEN_DIR=${PROTOBUF_GEN_DIR}
+  -DROOT_DIR=${CMAKE_SOURCE_DIR}
+  -P ${PROTOBUF_CMAKE_DIR}/GenerateProtos.cmake
+  COMMENT "Generate protobufs from .proto files")

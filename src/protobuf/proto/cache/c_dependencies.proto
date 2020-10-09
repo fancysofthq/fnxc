@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package FNX.Protobuf.Cache;
+option optimize_for = LITE_RUNTIME;
+
+// A list of cached `#include` paths for a C file.
+message CDependencies {
+  message Dependency {
+    // Is it a system path include, e.g. `#include <stdio.h>`?
+    bool is_system = 1;
+
+    // Path to the include, as in the source code.
+    string path = 2;
+  }
+
+  // List of `-I` flags used during the latest compilation.
+  repeated string include_flags = 1;
+
+  // C includes, in the order of declaration.
+  repeated Dependency dependencies = 2;
+}

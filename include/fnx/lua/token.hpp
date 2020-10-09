@@ -1,5 +1,8 @@
-#include "../token.hpp"
+#pragma once
+
 #include <variant>
+
+#include "../token.hpp"
 
 namespace FNX {
 namespace Lua {
@@ -85,15 +88,15 @@ struct Token : FNX::Token {
     struct Number;
     struct String;
   };
-};
 
-using AnyToken = std::variant<
-    Token::Comment,
-    Token::Identifier,
-    Token::Punctuation,
-    Token::Operator,
-    Token::Keyword,
-    Token::Literal>;
+  using Any = std::variant<
+      Comment,
+      Identifier,
+      Punctuation,
+      Operator,
+      Keyword,
+      Literal>;
+};
 
 } // namespace Lua
 } // namespace FNX

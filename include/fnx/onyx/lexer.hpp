@@ -9,7 +9,7 @@
 
 #include "../c/token.hpp"
 #include "../lexer.hpp"
-#include "../utils/coroutines.hpp"
+#include "../utils/coro.hpp"
 #include "../utils/flatten_variant.hpp"
 #include "./macro.hpp"
 #include "./token.hpp"
@@ -114,7 +114,12 @@ public:
     Error(std::set<char>);
   };
 
-  Utils::generator<Onyx::AnyToken> lex();
+  Lexer(std::basic_istream<char8_t> *);
+  Utils::Coro::generator<Onyx::AnyToken> lex();
+
+  /// Move one codepoint backwards, updating internal variables
+  /// accordingly. Effectively puts back valid amount of code units.
+  char32_t retreat();
 
 private:
   char32_t _get_closing_bracket_pair(char32_t);
@@ -137,13 +142,13 @@ private:
 
   /// Lex multiple codepoints, terminated with an unescaped
   /// terminator. Can also yield an escaped EOL.
-  [[nodiscard]] Utils::generator<
+  [[nodiscard]] Utils::Coro::generator<
       std::variant<Token::Codepoint, Token::Punctuation>>
   _lex_codepoints(char32_t);
 
   /// Lex multiple codepoints, terminated with an exact sequence of
   /// UTF-8 codepoints. Can also yield an escaped EOL.
-  [[nodiscard]] Utils::generator<
+  [[nodiscard]] Utils::Coro::generator<
       std::variant<Token::Codepoint, Token::Punctuation>>
       _lex_codepoints(std::u32string);
 
@@ -162,13 +167,13 @@ private:
   [[nodiscard]] Token::Punctuation _lex_bracket();
 
   /// Lex a character literal, e.g.\ @c 'f'ucs , starting from @c ' .
-  [[nodiscard]] Utils::generator<
+  [[nodiscard]] Utils::Coro::generator<
       std::
           variant<Token::Punctuation, Token::Codepoint, Token::Data>>
   _lex_char_literal();
 
   /// Lex a string literal, e.g.\ @c "foo"utf8 , starting from @c " .
-  [[nodiscard]] Utils::generator<
+  [[nodiscard]] Utils::Coro::generator<
       std::
           variant<Token::Punctuation, Token::Codepoint, Token::Data>>
   _lex_string_literal();
@@ -192,14 +197,14 @@ private:
 
   /// Lex a numeric literal, starting at a @b decimal number.
   /// Can also yield a dot as a punctuation token.
-  [[nodiscard]] Utils::generator<std::variant<
+  [[nodiscard]] Utils::Coro::generator<std::variant<
       Token::NumericLiteral,
       Token::Punctuation,
       Token::Data>>
   _lex_numeric_literal();
 
   /// Lex a heredoc, starting from @c ~ .
-  [[nodiscard]] Utils::generator<
+  [[nodiscard]] Utils::Coro::generator<
       std::variant<Token::Punctuation, Token::Codepoint>>
   _lex_heredoc();
 
@@ -208,21 +213,21 @@ private:
 
   /// Lex a char tensor literal, e.g.\ `%c|[ab] [cd]|r`,
   /// starting from the opening @c | bracket.
-  [[nodiscard]] Utils::generator<
+  [[nodiscard]] Utils::Coro::generator<
       std::
           variant<Token::Punctuation, Token::Codepoint, Token::Data>>
   _lex_char_tensor_literal();
 
   /// Lex a numeric tensor literal, e.g.\ `%|[1 2][3 4]|c`,
   /// starting from the opening @c | bracket.
-  [[nodiscard]] Utils::generator<
+  [[nodiscard]] Utils::Coro::generator<
       std::
           variant<Token::Punctuation, Token::Codepoint, Token::Data>>
   _lex_numeric_tensor_literal();
 
   /// Lex a quoted string, starting from @c ~ or @c q .
   /// @param is_heredoc True if begins with @c ~ .
-  [[nodiscard]] Utils::generator<std::variant<
+  [[nodiscard]] Utils::Coro::generator<std::variant<
       Token::MagicLiteral,
       Token::Data,
       Token::Punctuation,
@@ -230,7 +235,7 @@ private:
   _lex_quoted_string(bool is_heredoc);
 
   /// Lex a character container, starting from @c c .
-  [[nodiscard]] Utils::generator<std::variant<
+  [[nodiscard]] Utils::Coro::generator<std::variant<
       Token::MagicLiteral,
       Token::Data,
       Token::Punctuation,
@@ -239,7 +244,7 @@ private:
 
   /// Lex a numeric container, starting
   /// from whatever is following @c % .
-  [[nodiscard]] Utils::generator<std::variant<
+  [[nodiscard]] Utils::Coro::generator<std::variant<
       Token::MagicLiteral,
       Token::Data,
       Token::Punctuation,

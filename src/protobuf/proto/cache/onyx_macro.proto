@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package FNX.Protobuf.Cache;
+option optimize_for = LITE_RUNTIME;
+
+// A cache macro function for an Onyx source file, followed by a cached value.
+message OnyxMacro {
+  message LuaString { string value = 1; }
+  message LuaNumber { double value = 1; }
+  message LuaBoolean { bool value = 1; }
+  message LuaNil {}
+
+  // The precompiled function code.
+  string function = 1;
+
+  // The value may only be of a scalar Lua type.
+  // TODO: May be also allow tables?
+  oneof value {
+    LuaString string = 10;
+    LuaNumber number = 11;
+    LuaBoolean bool = 12;
+    LuaNil nil = 13;
+  }
+}

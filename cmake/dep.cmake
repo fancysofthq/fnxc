@@ -1,0 +1,7 @@
+include(cmake/dep/doctest.cmake)
+include(cmake/dep/lua.cmake)
+include(cmake/dep/sqlite.cmake)
+include(cmake/dep/sqlitecpp.cmake)
+include(cmake/dep/llvm.cmake)
+include(cmake/dep/clang.cmake)
+include(cmake/dep/protobuf.cmake)

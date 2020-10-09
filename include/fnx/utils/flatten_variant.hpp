@@ -1,3 +1,5 @@
+#pragma once
+
 #include <tuple>
 #include <variant>
 
@@ -56,13 +58,11 @@ template <typename... Ts> struct to_variant<std::tuple<Ts...>> {
 };
 } // namespace FlattenVariantImpl
 
-/**
- * @brief Flatten a variant.
- *
- * @example utils/flattened_variant.cpp
- *
- * @tparam T
- */
+/// Flatten a variant.
+///
+/// @example utils/flattened_variant.cpp
+///
+/// @tparam T The flattened variant.
 template <typename T>
 using flatten_variant_t = typename FlattenVariantImpl::to_variant<
     typename FlattenVariantImpl::flatten_variant<std::tuple<>, T>::

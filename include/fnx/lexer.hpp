@@ -8,11 +8,9 @@
 #include <stdint.h>
 #include <variant>
 
+#include "./location.hpp"
 #include "./position.hpp"
 #include "./radix.hpp"
-#include "./token.hpp"
-#include "./utils/coroutines.hpp"
-#include "./utils/utf8.hpp"
 
 namespace FNX {
 
@@ -35,7 +33,7 @@ public:
     ExpectationError(std::string);
   };
 
-  Lexer(std::basic_ostream<char8_t> *);
+  Lexer(std::basic_istream<char8_t> *);
 
 protected:
   std::basic_istream<char8_t> *_input;

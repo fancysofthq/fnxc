@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package FNX.Protobuf.Cache;
+option optimize_for = LITE_RUNTIME;
+
+// A map of cached undefined C preprocessor macro values.
+message CMacro { map<string, string> values = 1; }

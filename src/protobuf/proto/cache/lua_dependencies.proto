@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package FNX.Protobuf.Cache;
+option optimize_for = LITE_RUNTIME;
+
+// A list of cached `require`s for a Lua source file.
+message LuaDependencies {
+  // List of `-M` flags used during the latest compilation.
+  repeated string lua_require_flags = 1;
+
+  // Required paths, as in the source code, in the order of declaration.
+  repeated string paths = 2;
+}

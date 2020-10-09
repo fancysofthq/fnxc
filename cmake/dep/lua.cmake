@@ -1,0 +1,11 @@
+find_package(LUA 5.4 REQUIRED CONFIG)
+message(STATUS "Found Lua v${LUA_VERSION}")
+message(VERBOSE "LUA_INCLUDE_DIR == ${LUA_INCLUDE_DIR}")
+find_path(LUA_INCLUDE_DIR lua.h REQUIRED)
+include_directories(${LUA_INCLUDE_DIR})
+
+# set(LUA_USER_CPP ${PROJECT_SOURCE_DIR}/src/cpp/lua/luauser.cpp)
+set(LUA_USER_H ${PROJECT_SOURCE_DIR}/include/fnx/lua/luauser.h)
+# message(STATUS "LUA_USER_CPP == ${LUA_USER_CPP}")
+# message(STATUS "LUA_USER_H == ${LUA_USER_H}")
+# add_library(luauser ${LUA_USER_CPP})

@@ -1,0 +1,5 @@
+find_package(DOCTEST 2.4 REQUIRED CONFIG)
+message(STATUS "Found Doctest v${DOCTEST_VERSION}")
+message(VERBOSE "DOCTEST_INCLUDE_DIR == ${DOCTEST_INCLUDE_DIR}")
+find_path(DOCTEST_INCLUDE_DIR doctest/doctest.h REQUIRED)
+include_directories(${DOCTEST_INCLUDE_DIR})

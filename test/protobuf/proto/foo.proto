@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package FNX.Protobuf;
+option optimize_for = LITE_RUNTIME;
+
+message Foo {
+  string bar = 1;
+  uint32 baz = 2;
+}

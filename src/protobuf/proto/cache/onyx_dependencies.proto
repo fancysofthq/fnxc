@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package FNX.Protobuf.Cache;
+option optimize_for = LITE_RUNTIME;
+
+// A list of cached dependencies for an Onyx file.
+message OnyxDependencies {
+  message Dependency {
+    // Multiple, hence parallel, Onyx requires are possible.
+    message OnyxRequire { repeated string paths = 1; }
+
+    // C imports are always sequential.
+    message CImport { string path = 1; }
+
+    // Lua requires are always sequential.
+    message LuaRequire { string path = 1; }
+
+    oneof dependency {
+      OnyxRequire onyx_require = 1;
+      CImport c_import = 2;
+      LuaRequire lua_require = 3;
+    }
+  }
+
+  // List of `-R` flags used during the latest compilation.
+  repeated string onyx_require_flags = 1;
+
+  // List of `-I` flags used during the latest compilation.
+  repeated string c_include_flags = 2;
+
+  // List of `-M` flags used during the latest compilation.
+  repeated string lua_require_flags = 3;
+
+  // The order of dependencies matters.
+  repeated Dependency dependencies = 4;
+}

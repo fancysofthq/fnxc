@@ -1,0 +1,12 @@
+= Implementation
+
+This chapter describes implementation details of FNX.
+
+include::./implementation/interoperability.adoc[leveloffset=+1]
+
+include::./implementation/exceptions.adoc[leveloffset=+1]
+
+include::./implementation/caching.adoc[leveloffset=+1]
+
+TODO: AST compilation evaluates contents of exported functions *immediately*, whereas documentation generation skips exported function evaluation.
+Can use `virtual decl` to declare some non-existent functions, e.g. declarations in an `Array` specialization depending on `T`.

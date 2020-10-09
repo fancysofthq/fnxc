@@ -1,4 +1,6 @@
--- Can pass a function, which is useful when you want to wrap
+require "fnx"
+
+-- Can also pass a function, which is useful when you want to wrap
 -- an implicitly emitting code. For example:
 --
 -- ```nx
@@ -10,6 +12,10 @@ return function(value)
   if type(value) == "function" then
     value()
   else
-    c_emit(value:dump()) -- TODO:
+    __fnx__lua__nx_emit(value:dump()) -- TODO:
   end
 end
+
+nx.sync(function (state)
+  state.json = require "json"
+end)

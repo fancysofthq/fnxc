@@ -1,0 +1,5 @@
+find_package(SQLITE 3.7 REQUIRED CONFIG)
+message(STATUS "Found SQLite v${SQLITE_VERSION}")
+message(VERBOSE "SQLITE_INCLUDE_DIR == ${SQLITE_INCLUDE_DIR}")
+find_path(SQLITE_INCLUDE_DIR sqlite3.h REQUIRED)
+include_directories(${SQLITE_INCLUDE_DIR})

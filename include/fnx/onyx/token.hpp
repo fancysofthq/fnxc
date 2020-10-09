@@ -5,7 +5,6 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
-#include <xstring>
 
 #include "../radix.hpp"
 #include "../token.hpp"
@@ -34,7 +33,6 @@ namespace Onyx {
 ///
 struct Token : FNX::Token {
   struct Comment;
-  struct Control;
   struct Punctuation;
   struct Keyword;
   struct ID;

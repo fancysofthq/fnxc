@@ -11,25 +11,23 @@ namespace C {
 struct Token : FNX::Token {
   struct Punctuation {};
 
-  /**
-   * @brief An ASCII-only operator token.
-   * @note `sizeof` and `_Alignof` are considered keyword tokens.
-   */
+  /// An ASCII-only operator token.
+  /// @note `sizeof` and `_Alignof` are considered keywords.
   struct Operator {};
 
   struct Keyword {};
   struct Identifier {};
   struct Literal {};
   struct Comment {};
-};
 
-using AnyToken = std::variant<
-    Token::Punctuation,
-    Token::Operator,
-    Token::Keyword,
-    Token::Identifier,
-    Token::Literal,
-    Token::Comment>;
+  using Any = std::variant<
+      Punctuation,
+      Operator,
+      Keyword,
+      Identifier,
+      Literal,
+      Comment>;
+};
 
 } // namespace C
 } // namespace FNX

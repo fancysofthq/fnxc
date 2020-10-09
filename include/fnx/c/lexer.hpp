@@ -22,14 +22,14 @@ public:
   };
 
   Lexer(std::istream);
-  Utils::generator<C::AnyToken> lex(Mode mode);
+  Utils::generator<Token::Any> lex(Mode mode);
 
 protected:
-  Utils::generator<C::AnyToken> _lex_routine();
+  Utils::generator<Token::Any> _lex_routine();
 
-  Utils::generator<C::Token::Operator> _lex_ascii_op();
-  Utils::generator<C::Token::Operator> _lex_ascii_op(char);
-  Utils::generator<C::Token::Operator> _lex_ascii_op(char, char);
+  Utils::generator<Token::Operator> _lex_ascii_op();
+  Utils::generator<Token::Operator> _lex_ascii_op(char);
+  Utils::generator<Token::Operator> _lex_ascii_op(char, char);
 
   bool _is_ascii_op();
 };

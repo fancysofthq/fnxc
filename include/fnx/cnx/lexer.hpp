@@ -31,7 +31,7 @@ public:
     FinalMacro,    // '\!{', stop at '{'
   };
 
-  Utils::generator<std::variant<C::AnyToken, Signal>> lex();
+  Utils::generator<std::variant<C::Token::Any, Signal>> lex();
 
 protected:
   bool _is_onyx_id();

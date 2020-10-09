@@ -1,19 +1,19 @@
-#include "../../header/utils/coroutines.hpp"
 #include "../lexer.hpp"
+#include "../utils/coroutines.hpp"
 #include "./token.hpp"
 
 namespace FNX {
 namespace Lua {
 
 /// The Lua macro lexer.
-class Lexer : FNX::Lexer {
+class Lexer : public FNX::Lexer {
 public:
   enum class Terminator {
-    NonEmitting,
-    Emitting,
+    NonEmitting, ///< I.e.\ @c %} .
+    Emitting,    ///< I.e.\ @c }} .
   };
 
-  Utils::generator<AnyToken> lex(Terminator);
+  Utils::generator<Token::Any> lex(Terminator);
 };
 
 } // namespace Lua
