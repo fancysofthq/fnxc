@@ -1,5 +1,5 @@
 #include "../lexer.hpp"
-#include "../utils/coroutines.hpp"
+#include "../utils/coro.hpp"
 #include "./token.hpp"
 
 namespace FNX {
@@ -13,7 +13,7 @@ public:
     Emitting,    ///< I.e.\ @c }} .
   };
 
-  Utils::generator<Token::Any> lex(Terminator);
+  Utils::Coro::generator<Token::Any> lex(Terminator);
 };
 
 } // namespace Lua

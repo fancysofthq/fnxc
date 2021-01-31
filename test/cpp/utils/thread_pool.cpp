@@ -25,11 +25,6 @@ TEST_CASE("ThreadPool") {
 
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-#ifdef _MSC_VER
-  CHECK_MESSAGE(future.get() == 1024, "Futures are broken on MSVC");
-#else
   CHECK(future.get() == 1024);
-#endif
-
   CHECK(sum == 524800);
 }

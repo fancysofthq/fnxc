@@ -1,0 +1,28 @@
+@startuml Test
+
+class function_declarations {
+  uuid: blob
+  --
+  ..
+  name: text
+  args: uuid[]
+}
+
+class function_implementations {
+  uuid: blob
+  --
+  ..
+  ' Is it def?
+  is_def: bool
+  file_path: text
+}
+
+class function_specializations {
+  uuid: blob
+  --
+  implementation_uuid: blob
+}
+
+function_specializations::implementation_uuid --> function_implementations::uuid
+
+@enduml

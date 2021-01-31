@@ -3,5 +3,7 @@ syntax = "proto3";
 package FNX.Protobuf.Cache;
 option optimize_for = LITE_RUNTIME;
 
-// A map of cached undefined C preprocessor macro values.
+// A map of cached implicitly defined C preprocessor macro values.
+// Examples include vendor-specific macros, such as `__GNUC__`,
+// and idempotent macros, such as `__DATE__`.
 message CMacro { map<string, string> values = 1; }

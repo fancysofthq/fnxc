@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package FNX.Protobuf.Cache;
+option optimize_for = LITE_RUNTIME;
+
+// A cached list of specializations for this file.
+// If the list changes, the LLVM module is to be re-generated.
+//
+// NOTE: Primitive type specializations (e.g. `Vector<FBin32, 4>`)
+// may be referenced in an arguments list, but they do not invest
+// into the module invalidation.
+//
+// NOTE: Changing the default value for an argument does not trigger
+// re-specialization, but invalidates all callers relying
+// on the previous default value.
+//
+// TODO: Cache LLVM implementation bodies in binary format,
+// so that only new functions are to be codegened?
+//
+// TODO: Cache native annotations, e.g. `@[Cold]`? They can be
+// applied from within another file:
+//
+// ```nx
+// @[Cold] # Now it's cold
+// decl existing()
+// ```
+message Specializations {
+  // An argument, e.g. `foo: Bar` or `[0]: Baz` or `` `0`: Qux ``.
+  message Argument {
+    // How's the argument referenced.
+    oneof reference {
+      // An index reference, e.g. `[0]:`.
+      uint32 index = 1;
+
+      // A label reference, e.g. `foo:` or `` `0`: ``.
+      string label = 2;
+    }
+
+    // The Onyx type of the arguement.
+    Type type = 3;
+  }
+
+  // A specialized Onyx type.
+  message Type {
+    // Is the type primitive, e.g. `SBin32`?
+    bool is_primitive = 1;
+
+    // The type's path elements.
+    repeated string path = 2;
+
+    // The type's generic arguments, if any.
+    repeated Argument arguments = 3;
+  }
+
+  // A specialized Onyx function.
+  message Function {
+    // Whether is the function static or instance.
+    bool static = 1;
+
+    // The functions's path elements.
+    repeated string path = 2;
+
+    // List of the function's arguments.
+    repeated Argument arguments = 3;
+
+    // The returned type of the function.
+    Type returned = 4;
+  }
+
+  // Non-primitive Onyx types specialized in this file.
+  repeated Type types = 1;
+
+  // Onyx functions specialized in this file.
+  repeated Function functions = 2;
+}

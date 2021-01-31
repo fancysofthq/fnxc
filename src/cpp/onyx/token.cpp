@@ -93,15 +93,15 @@ const std::unordered_map<Token::Keyword::Kind, string>
 
         {Instance, "instance"},
         {Static, "static"},
-        {Native, "native"}
+        {Native, "native"},
 
         {Compl, "compl"},
         {Incompl, "incompl"},
         {Abstract, "abstract"},
 
-        {ThreadsafeModifer, "threadsafe"},
-        {FragileModifer, "fragile"},
-        {UnsafeModifer, "unsafe"},
+        {ThreadsafeModifier, "threadsafe"},
+        {FragileModifier, "fragile"},
+        {UnsafeModifier, "unsafe"},
 
         {ThreadsafeStatement, "threadsafe!"},
         {FragileStatement, "fragile!"},

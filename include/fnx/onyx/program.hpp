@@ -3,11 +3,13 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <ostream>
 #include <set>
 #include <unordered_map>
 #include <vector>
 
 #include "../c/ast.hpp"
+#include "../llir/module.hpp"
 #include "../lua/universe.hpp"
 #include "../utils/coro.hpp"
 #include "../utils/thread_pool.hpp"
@@ -24,8 +26,17 @@ public:
   /// Construct a new, distinctive Onyx program.
   Program(Utils::ThreadPool *thread_pool);
 
-  /// Require Onyx file(s).
+  /// Require Onyx files in parallel.
   bool require(std::vector<std::filesystem::path> paths);
+
+  // /// Compile the program. It iterates through all the `export`ed
+  // /// functions, in declaration order. Function and types are
+  // /// specialized, and delayed and final macros are evaluated,
+  // /// resulting in LLIR modules.
+  // std::vector<LLIR::Module> codegen();
+
+  /// The global Onyx AST.
+  Onyx::AST ast;
 
 private:
   struct Dependency {
@@ -40,17 +51,14 @@ private:
     Dependency(Type, std::vector<std::filesystem::path>);
   };
 
-  /// Import C file(s).
-  bool _import(std::vector<std::filesystem::path> paths);
+  /// Import a C file.
+  bool _import(std::filesystem::path);
 
-  /// Load Lua file(s).
-  bool _load(std::vector<std::filesystem::path> paths);
+  /// Load a Lua file.
+  bool _load(std::filesystem::path);
 
   /// The shared thread pool.
   Utils::ThreadPool *_thread_pool;
-
-  /// The global Onyx AST.
-  Onyx::AST _onyx_ast;
 
   /// The global C AST.
   C::AST _c_ast;
@@ -82,8 +90,13 @@ private:
       std::set<std::filesystem::path>>
       _lua_dependendants;
 
-  /// Merge an Onyx CST into the global AST with Onyx macro and C
-  /// constant expression evaluation and semantic analysis.
+  /// Merge an Onyx CST into the global AST with immediate Onyx macro
+  /// and C constant expression evaluation. Note that neither
+  /// semantic analysis is performed nor delayed macros are
+  /// evaluated.
+  ///
+  /// TODO: Immediate Onyx macro and C constan expression evaluation
+  /// leads to sub-CST, then sub-AST generation.
   ///
   /// Onyx, Lua and C ASTs may be written into simulataneously,
   /// therefore synchronization is required. Multiple readers are

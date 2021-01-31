@@ -1,0 +1,6 @@
+find_package(LIBUV 1.39 REQUIRED CONFIG)
+message(STATUS "Found LibUV v${LIBUV_VERSION}")
+message(VERBOSE "LIBUV_INCLUDE_DIR == ${LIBUV_INCLUDE_DIR}")
+find_path(LIBUV_INCLUDE_DIR uv.h REQUIRED)
+include_directories(${LIBUV_INCLUDE_DIR})
+link_directories(${LIBUV_LIB_DIR})

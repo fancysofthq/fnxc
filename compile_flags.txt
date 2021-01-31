@@ -1,0 +1,13 @@
+-std=c++2a
+-stdlib=libc++
+-fcoroutines-ts
+-Iinclude
+-Ilib\doctest\vendor
+-Ilib\lua\vendor\src
+-Ilib\sqlite\vendor
+-Ilib\sqlitecpp\vendor\include
+-Ilib\protobuf\vendor\src
+-Ilib\libuv\vendor\include
+-Ilib\uvw\vendor\src
+-Ibuild\lib\protobuf\vendor\cmake\gen
+-IC:\Dev\LLVM\10\Prebuilt\include

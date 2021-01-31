@@ -6,15 +6,25 @@
 #include <mutex>
 #include <queue>
 #include <thread>
-#include <type_traits>
 
-// FIXME: Moving a `std::packaged_task` does not work in MSVC.
+// There is a serious bug in MSVC which does not allow a naive
+// `std::packaged_task`-based implementation to work, because it is
+// not possible to move an `std::function` instance.
+//
+// clang-format off
 //
 // See https://stackoverflow.com/a/16152351/3645337,
-// https://stackoverflow.com/a/48999075/3645337, and the king
-// himself at
+// https://stackoverflow.com/a/48999075/3645337,
+// and the bug itself at
 // https://developercommunity.visualstudio.com/content/problem/108672/unable-to-move-stdpackaged-task-into-any-stl-conta.html
 //
+// Thankfully, a developer named [Kirill Bolshakov](https://github.com/Overlordff)
+// from the C++ chat in Telegram helped me to come up with an
+// interface-based solution. Thank you, Kirill!
+//
+// Now it works on MSVC as well.
+//
+// clang-format on
 
 namespace FNX {
 namespace Utils {
@@ -36,7 +46,23 @@ public:
   decltype(auto) enqueue(F &&f, A &&... a);
 
 private:
-  using TaskType = std::packaged_task<void()>;
+  struct ITask {
+    virtual ~ITask() = default;
+    virtual void execute() = 0;
+    virtual bool valid() = 0;
+  };
+
+  template <typename _T> struct Task : public ITask {
+    Task(_T &&t) : _task(std::forward<_T>(t)) {}
+    void execute() override { _task(); }
+    auto get_future() { return _task.get_future(); }
+    bool valid() override { return _task.valid(); }
+
+  private:
+    _T _task;
+  };
+
+  using TaskType = std::unique_ptr<ITask>;
 
   struct TaskEntry {
     int priority;
@@ -65,8 +91,8 @@ template <class F, class... A>
 decltype(auto) ThreadPool::enqueue(int priority, F &&f, A &&... a) {
   using _Ret = std::invoke_result_t<F, A...>;
 
-  std::packaged_task<_Ret()> task(
-      std::bind(std::forward<F>(f), std::forward<A>(a)...));
+  auto task = Task(std::packaged_task<_Ret()>(
+      std::bind(std::forward<F>(f), std::forward<A>(a)...)));
 
   std::future<_Ret> future = task.get_future();
 
@@ -77,8 +103,11 @@ decltype(auto) ThreadPool::enqueue(int priority, F &&f, A &&... a) {
       throw std::runtime_error(
           "Can not enqueue a task on an already closed ThreadPool");
 
-    _tasks.push(TaskEntry(
-        priority, std::packaged_task<void()>(std::move(task))));
+    std::unique_ptr<ITask> ptr =
+        std::make_unique<Task<std::packaged_task<_Ret()>>>(
+            std::move(task));
+
+    _tasks.push(TaskEntry(priority, std::move(ptr)));
   }
 
   // Notify a single thread about the new task.

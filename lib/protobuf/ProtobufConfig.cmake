@@ -5,9 +5,10 @@
 project(PROTOBUF VERSION 3.13.0)
 cmake_minimum_required(VERSION 2.6)
 
-# The NEW policy is required to overwrite the variable.
+# The NEW policy is required to overwrite the `protobuf_BUILD_TESTS`
+# option (incorrectly) defaulting to ON.
 # See https://cmake.org/cmake/help/git-stage/policy/CMP0077.html.
-cmake_policy(SET CMP0077 NEW)
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 set(protobuf_BUILD_TESTS OFF)
 
 get_filename_component(PROTOBUF_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)

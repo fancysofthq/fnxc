@@ -2,11 +2,11 @@ require "./charset.nx"
 
 trait Encoding<Charset: CS, Unitsize: UZ>
   # A literal functor to return a string in given encoding.
-  decl (string: \%s) : String<self>
+  decl ()(string: \%s) : String<self>
 end
 
 namespace UCS2 <~ Encoding<UCS, 16>
-  impl (string: ~ \%s)
+  impl ()(string ~ \%s)
     \{%
       if nx.ctx.string.val == "foo"
     %}

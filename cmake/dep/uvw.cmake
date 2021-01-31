@@ -1,0 +1,5 @@
+find_package(UVW 2.7 REQUIRED CONFIG)
+message(STATUS "Found UVW v${UVW_VERSION}")
+message(VERBOSE "UVW_INCLUDE_DIRS == ${UVW_INCLUDE_DIRS}")
+find_path(UVW_INCLUDE_DIRS uvw.hpp REQUIRED)
+include_directories(${UVW_INCLUDE_DIRS})

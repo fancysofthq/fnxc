@@ -1,9 +1,3 @@
-#include <functional>
-#include <iostream>
-#include <mutex>
-#include <stdexcept>
-#include <type_traits>
-
 #include "fnx/utils/thread_pool.hpp"
 
 namespace FNX::Utils {
@@ -37,11 +31,11 @@ ThreadPool::ThreadPool(size_t threads) {
           this->_tasks.pop();
         }
 
-        if (!task.valid())
+        if (!task->valid())
           throw std::runtime_error("Invalid task");
 
         // Execute the task.
-        task();
+        task->execute();
       }
     }));
   }

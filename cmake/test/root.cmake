@@ -2,6 +2,7 @@ set(TESTS
   clang
   sqlitecpp
   protobuf
+  uvw
 )
 
 foreach(test ${TESTS})
@@ -13,3 +14,4 @@ endforeach()
 include(cmake/test/root/clang.cmake)
 include(cmake/test/root/sqlitecpp.cmake)
 include(cmake/test/root/protobuf.cmake)
+include(cmake/test/root/uvw.cmake)

@@ -1,23 +1,13 @@
 #pragma once
 
-// #include <cstddef>
 #include <filesystem>
-// #include <istream>
 #include <optional>
 #include <set>
+#include <variant>
 #include <vector>
-// #include <sstream>
-// #include <stdint.h>
-// #include <variant>
-// #include <vector>
 
-// #include "../c/token.hpp"
-// #include "../lua/token.hpp"
-// #include "../position.hpp"
 #include "../unit.hpp"
-// #include "../utils/flatten_variant.hpp"
 #include "./cst.hpp"
-// #include "./token.hpp"
 
 namespace FNX {
 namespace Onyx {
@@ -26,13 +16,31 @@ namespace Onyx {
 /// Its `source_stream` is read from the `bytes` buffer.
 class File : public Unit {
 public:
-  struct Dependency {
+  struct CachedDependency {
     enum Type { C, Onyx, Lua };
 
     const Type type;
-    const std::vector<std::filesystem::path> paths;
 
-    Dependency(Type, const std::vector<std::filesystem::path>);
+    const std::variant<
+        std::filesystem::path,
+        std::vector<std::filesystem::path>>
+        paths;
+
+    CachedDependency(
+        Type type,
+        const std::variant<
+            std::filesystem::path,
+            std::vector<std::filesystem::path>> paths);
+  };
+
+  // NOTE: The file containing a `complete` type implementation
+  // contains the according specialization.
+  //
+  // TODO: Make the `File` class LLIR-unaware.
+  struct StructSpecialization {};
+
+  struct FunctionSpecialization {
+    const std::string name;
   };
 
   /// The CST of this file. It may be built either by parsing the
@@ -47,6 +55,9 @@ public:
 
   /// Return a pointer to the `bytes` memory buffer.
   std::basic_iostream<char8_t> *source_stream() override;
+
+  /// A cached file may reuse its LLIR module.
+  bool cached;
 
   // /// Set of files depending on this file.
   // /// @note Circular dependencies are not possible.
@@ -70,42 +81,45 @@ public:
 
   File(std::filesystem::path);
 
-  /// Check in system-dependent way if the file has changed.
+  /// Check in the file has its CST cached. If the file has changed,
+  /// its CST is deemed staleh, hence invalid.
   ///
-  /// @return True if there is no `.basic.fnxcache.bin` file at all
-  /// or it is determined that the file has actually changed.
-  bool cache_is_physically_invalid();
+  /// @return True if the file has its CST cached and valid.
+  bool cached_cst_check();
 
-  /// Return a list of cached dependees of this file. These shall be
+  /// Return a list of cached dependees for this file. These shall be
   /// checked in parallel prior to working with the file.
   ///
-  /// @return Nullopt if there is no dependees at all. In that case,
-  /// the file may be immediately processed.
-  std::optional<std::vector<Dependency>> cache_dependencies();
+  /// @return Nullopt if there is no dependees at all.
+  std::optional<std::vector<CachedDependency>> cached_deps();
 
-  /// @return True if target options cached for this file are no more
-  /// valid, thus requiring AST rebuilding.
-  bool cache_is_target_invalid();
+  /// @return True if current target parameters equal to the cached
+  /// ones.
+  bool cached_target_check();
 
   /// Evaluate the Onyx cache macro function, if any, and compare its
   /// result with the stored macro cache value. Updates the
-  /// macro_cache_value variable with the new one, but not writes the
+  /// macro_cache_value variable with the new one, but does not write
   /// it to the cache file yet.
   ///
-  /// @return True if the value returned from the function differs
+  /// @return False if the value returned from the function differs
   /// from the cached one.
   ///
-  /// @return False if there is no cache macro function or the
-  /// returning value is not different from the cached one.
-  bool cache_is_onyx_macro_invalid();
+  /// @return True if there is no cache macro function at all or the
+  /// returned value is not different from the cached one.
+  bool cached_macro_check();
 
-  /// Check if any of the cached C macro values is invalid. If so,
-  /// rebuilding is required.
-  bool cache_is_c_macro_invalid();
+  /// Check if any of the cached implicitly defined C macro values is
+  /// invalid. If so, rebuilding is required.
+  ///
+  /// @return True if there is no need in rebuilding.
+  bool cached_cmacro_check();
 
   /// Check if any of the cached environment variable values is
   /// invalid. If so, rebuilding is required.
-  bool cache_is_env_invalid();
+  ///
+  /// @return True of there is no need in rebuilding.
+  bool cached_env_check();
 };
 } // namespace Onyx
 } // namespace FNX
